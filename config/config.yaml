@@ -7,6 +7,7 @@ partitions:
   cpu: x86_64_4cpu
   assembly: x86_64_8cpu
   gpu: x86_64_gpu800
+# Account passed to sbatch when set; empty lets the executor plugin infer one.
 slurm_account: ""
 
 software:

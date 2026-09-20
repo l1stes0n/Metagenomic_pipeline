@@ -90,7 +90,7 @@ conda env create -f environment.yaml
 conda activate metagenomic-workflow
 ```
 
-控制环境使用 Snakemake 9 和 `cluster-generic` 1.x。各工具环境由下表所列 YAML 定义并自动创建，使用随附的 Slurm profile 时会自动启用 Conda 部署。
+控制环境使用 Snakemake 9 和 Slurm executor 插件。各工具环境由下表所列 YAML 定义并自动创建，使用随附的 Slurm profile 时会自动启用 Conda 部署。
 
 | 环境 | 配置文件 |
 | --- | --- |
@@ -161,7 +161,7 @@ snakemake prepare_environments \
   --configfile config/environments.local.yaml
 
 snakemake \
-  --profile profiles/slurm \
+  --workflow-profile slurm \
   --configfile config/environments.local.yaml
 ```
 
@@ -236,7 +236,7 @@ snakemake prepare_databases --cores 4
 
 ```bash
 snakemake prepare_databases \
-  --profile profiles/slurm \
+  --workflow-profile slurm \
   --jobs 3
 ```
 
@@ -293,20 +293,13 @@ COMEBin 的最终候选筛选还需要 CheckM1 数据库。
 
 **Snakemake 的 `threads` 是 CPU 请求的唯一来源。**
 
-提交器读取 Snakemake 作业属性，并将最终线程数映射为 `sbatch --cpus-per-task`。可以修改 `resources.<rule>.threads`，或使用 `--set-threads` 覆盖 CPU 数量。各程序的并发参数由同一线程数派生，不读取 `SLURM_CPUS_PER_TASK`。
+Profile 使用官方 [Slurm executor 插件](https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/slurm.html)，将规则资源映射为 `sbatch` 参数：`threads` → `--cpus-per-task`，`resources.slurm_partition` → `--partition`，`resources.gpu` → `--gpus`，`runtime`（分钟）→ `--time`，`slurm_account` → `--account`。可以修改 `resources.<rule>.threads`，或使用 `--set-threads` 覆盖 CPU 数量。各程序的并发参数由同一线程数派生，不读取 `SLURM_CPUS_PER_TASK`。
 
-节点类型由 `resources.partition` 选择。GPU 分箱规则还会申请 `--gpus`。`runtime` 的单位为分钟；`slurm_account` 为空时不会传递账户参数。每个计算作业使用一个节点和一个任务。
+由于 `mem_mb` 和 `disk_mb` 默认为 `0`，不会发送 `--mem` 请求；`constraint` 资源始终未设置，因此也不会传递 `--constraint` 或 Slurm feature 请求。每个计算作业使用一个节点和一个任务。
 
-Profile 使用 [cluster-generic executor](https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/cluster-generic.html)，并通过显式白名单传递 `sbatch` 参数。以下参数不会被传递：
+`slurm_account` 为空时，执行器插件会从 Slurm 记账信息中推断账号；如需固定账号，请在 `config/config.yaml` 中设置 `slurm_account`。
 
-- `--mem`
-- `--mem-per-cpu`
-- `--constraint`
-- Slurm features
-
-Snakemake 内部的 `mem_mb` 和 `disk_mb` 默认设为 `0`，用于关闭自动估算，也不会转发给 Slurm。
-
-提交器会清除继承的 `SBATCH_*` 变量以及已有 allocation 中与资源请求相关的 `SLURM_*` 变量，同时保留可能用于定位集群配置的 `SLURM_CONF` 和 `SLURM_CONF_SERVER`。
+插件不会清理继承的 `SBATCH_*` 或 `SLURM_*` 变量；如果集群环境预设了这些变量，请在干净的环境中启动 Snakemake。
 
 `assembly.memory_gb` 仅通过 `metaspades.py -m` 设置 **metaSPAdes 的程序内存上限**，不是 Slurm 内存请求。默认值 1500 GB 沿用原始脚本，应根据组装分区节点的实际内存和允许的并发数量进行调整。
 
@@ -322,7 +315,7 @@ minibwa 可能额外创建两个 I/O 线程，因此 mapping worker 数计算为
 
 ```bash
 snakemake \
-  --profile profiles/slurm \
+  --workflow-profile slurm \
   --jobs 20
 ```
 
@@ -332,7 +325,7 @@ snakemake \
 
 ```bash
 snakemake \
-  --profile profiles/slurm \
+  --workflow-profile slurm \
   --jobs 10 \
   --set-threads \
     assembly=48 \
@@ -348,10 +341,16 @@ snakemake \
 日志位置：
 
 - 外部程序日志：`logs/<rule>/<sample>.log`
-- Slurm 标准输出和错误：`logs/slurm/`
+- Slurm 作业日志：`logs/slurm/`
 - 数据库准备日志：`results/logs/databases/`
 
-作业状态优先通过 `squeue` 查询。只有当 `sacct` 的主作业记录为 `COMPLETED` 且退出码为 `0:0` 时，作业才会被判定为成功。如果连续 300 秒无法获得可靠状态，工作流会报告错误，而不会将未知状态视为成功。
+作业状态通过 Slurm 记账系统（`sacct`）查询。`FAILED`、`TIMEOUT`、`OUT_OF_MEMORY` 等终止失败状态会被判定为作业失败；运行期间发生故障的节点会被记录、从后续提交中排除，并在运行结束时报告。
+
+Slurm 作业名为工作流运行 UUID；每个作业的 rule 与 wildcards 记录在 Slurm 的 Comment 字段中（`rule_<rule>_wildcards_<wildcards>`）。可用以下命令查看带可读信息的作业：
+
+```bash
+squeue -u "$USER" -o "%.10i %.32j %.45k %.10T %.10M"
+```
 
 ## 分析参数与输出
 

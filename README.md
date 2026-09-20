@@ -90,7 +90,7 @@ conda env create -f environment.yaml
 conda activate metagenomic-workflow
 ```
 
-The control environment uses Snakemake 9 and `cluster-generic` 1.x. Tool-specific environments are defined by the YAML files below and created automatically; Conda deployment is enabled by the supplied Slurm profile.
+The control environment uses Snakemake 9 and the Slurm executor plugin. Tool-specific environments are defined by the YAML files below and created automatically; Conda deployment is enabled by the supplied Slurm profile.
 
 | Environment | Configuration file |
 | --- | --- |
@@ -161,7 +161,7 @@ snakemake prepare_environments \
   --configfile config/environments.local.yaml
 
 snakemake \
-  --profile profiles/slurm \
+  --workflow-profile slurm \
   --configfile config/environments.local.yaml
 ```
 
@@ -236,7 +236,7 @@ Databases can also be prepared through an internet-enabled compute partition:
 
 ```bash
 snakemake prepare_databases \
-  --profile profiles/slurm \
+  --workflow-profile slurm \
   --jobs 3
 ```
 
@@ -293,20 +293,13 @@ COMEBin additionally requires the CheckM1 database for final candidate filtering
 
 **Snakemake `threads` is the single source of truth for CPU requests.**
 
-The submitter reads the Snakemake job properties and maps the final thread count to `sbatch --cpus-per-task`. Change `resources.<rule>.threads` or use `--set-threads` to override CPU allocation. Application-level concurrency arguments are derived from the same thread count and do not read `SLURM_CPUS_PER_TASK`.
+The profile uses the official [Slurm executor plugin](https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/slurm.html), which maps rule resources to `sbatch` arguments: `threads` to `--cpus-per-task`, `resources.slurm_partition` to `--partition`, `resources.gpu` to `--gpus`, `runtime` (minutes) to `--time`, and `slurm_account` to `--account`. Change `resources.<rule>.threads` or use `--set-threads` to override CPU allocation. Application-level concurrency arguments are derived from the same thread count and do not read `SLURM_CPUS_PER_TASK`.
 
-Node type is selected with `resources.partition`. GPU binning rules additionally request `--gpus`. Runtime values are expressed in minutes. If `slurm_account` is empty, no account argument is passed. Each compute job uses one node and one task.
+Because `mem_mb` and `disk_mb` default to `0`, no `--mem` request is sent. The `constraint` resource is never set, so no `--constraint` or Slurm feature request is passed. Each compute job uses one node and one task.
 
-The profile uses the [cluster-generic executor](https://snakemake.github.io/snakemake-plugin-catalog/plugins/executor/cluster-generic.html) with an explicit allowlist of `sbatch` arguments. It does **not** pass:
+If `slurm_account` is empty, the executor plugin infers the account from Slurm accounting; set `slurm_account` in `config/config.yaml` to pin a specific account.
 
-- `--mem`
-- `--mem-per-cpu`
-- `--constraint`
-- Slurm features
-
-Snakemake's internal `mem_mb` and `disk_mb` resources default to `0` to disable automatic estimation, and they are not forwarded to Slurm.
-
-The submitter removes inherited `SBATCH_*` variables and request-related `SLURM_*` variables from an existing allocation. It preserves `SLURM_CONF` and `SLURM_CONF_SERVER`, which may be required to locate the cluster configuration.
+The plugin does not sanitize inherited `SBATCH_*` or `SLURM_*` variables; start Snakemake from a clean environment if your site presets such variables.
 
 `assembly.memory_gb` is used only as the **metaSPAdes application memory limit** through `metaspades.py -m`. It is not a Slurm memory request. The default value of 1500 GB is inherited from the original script. Adjust it to the actual memory of nodes in the assembly partition and set an appropriate job concurrency limit.
 
@@ -322,7 +315,7 @@ Run all commands from the workflow directory. After configuring real FASTQ paths
 
 ```bash
 snakemake \
-  --profile profiles/slurm \
+  --workflow-profile slurm \
   --jobs 20
 ```
 
@@ -332,7 +325,7 @@ Example resource overrides:
 
 ```bash
 snakemake \
-  --profile profiles/slurm \
+  --workflow-profile slurm \
   --jobs 10 \
   --set-threads \
     assembly=48 \
@@ -348,10 +341,16 @@ snakemake \
 Log locations:
 
 - External program logs: `logs/<rule>/<sample>.log`
-- Slurm standard output and error: `logs/slurm/`
+- Slurm job logs: `logs/slurm/`
 - Database preparation logs: `results/logs/databases/`
 
-Job status checks prefer `squeue`. A job is considered successful only when the main `sacct` record reports `COMPLETED` with exit code `0:0`. If no reliable status can be obtained for 300 seconds, the workflow reports an error rather than treating an unknown state as success.
+Job status is queried from Slurm accounting (`sacct`). Terminal failure states such as `FAILED`, `TIMEOUT`, and `OUT_OF_MEMORY` are reported as job failures; nodes that fail during a run are recorded, excluded from later submissions, and reported at the end.
+
+Slurm job names are the workflow run UUID; the rule and wildcards of each job are stored in the Slurm comment (`rule_<rule>_wildcards_<wildcards>`). To inspect jobs with readable metadata:
+
+```bash
+squeue -u "$USER" -o "%.10i %.32j %.45k %.10T %.10M"
+```
 
 ## Analysis Parameters and Outputs
 

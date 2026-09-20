@@ -12,7 +12,7 @@ rule environment_ready:
         tool="|".join(TOOL_EXECUTABLES)
     threads: setting("environment_ready", "threads")
     resources:
-        partition=setting("environment_ready", "partition"),
+        slurm_partition=setting("environment_ready", "partition"),
         runtime=setting("environment_ready", "runtime"),
         slurm_account=config["slurm_account"]
     params:

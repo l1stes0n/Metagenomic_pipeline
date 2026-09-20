@@ -32,7 +32,7 @@ rule prepare_database:
         spec=lambda wc: json.dumps(config["databases"][wc.database], sort_keys=True)
     threads: setting("prepare_database", "threads")
     resources:
-        partition=setting("prepare_database", "partition"),
+        slurm_partition=setting("prepare_database", "partition"),
         runtime=setting("prepare_database", "runtime"),
         gpus=0,
         slurm_account=config.get("slurm_account", "")

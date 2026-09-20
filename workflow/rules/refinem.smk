@@ -8,7 +8,7 @@ rule refinem_stats:
         stats=directory(REFINEM + "/stats")
     threads: setting("refinem_stats", "threads")
     resources:
-        partition=setting("refinem_stats", "partition"),
+        slurm_partition=setting("refinem_stats", "partition"),
         runtime=setting("refinem_stats", "runtime"),
         slurm_account=config["slurm_account"]
     params:
@@ -36,7 +36,7 @@ rule refinem_outliers:
         outliers=directory(REFINEM + "/outliers")
     threads: setting("refinem_outliers", "threads")
     resources:
-        partition=setting("refinem_outliers", "partition"),
+        slurm_partition=setting("refinem_outliers", "partition"),
         runtime=setting("refinem_outliers", "runtime"),
         slurm_account=config["slurm_account"]
     params:
@@ -68,7 +68,7 @@ rule refinem_filter:
         filtered=directory(REFINEM + "/filtered")
     threads: setting("refinem_filter", "threads")
     resources:
-        partition=setting("refinem_filter", "partition"),
+        slurm_partition=setting("refinem_filter", "partition"),
         runtime=setting("refinem_filter", "runtime"),
         slurm_account=config["slurm_account"]
     conda: ENVS["refinem"]

@@ -6,7 +6,7 @@ rule read_qc:
         qc=directory(QC)
     threads: setting("read_qc", "threads")
     resources:
-        partition=setting("read_qc", "partition"),
+        slurm_partition=setting("read_qc", "partition"),
         runtime=setting("read_qc", "runtime"),
         slurm_account=config["slurm_account"]
     params:
@@ -37,7 +37,7 @@ rule assembly:
         assembly=directory(ASSEMBLY)
     threads: setting("assembly", "threads")
     resources:
-        partition=setting("assembly", "partition"),
+        slurm_partition=setting("assembly", "partition"),
         runtime=setting("assembly", "runtime"),
         slurm_account=config["slurm_account"]
     params:
@@ -66,7 +66,7 @@ rule index:
         mbw=INDEX + ".mbw"
     threads: setting("index", "threads")
     resources:
-        partition=setting("index", "partition"),
+        slurm_partition=setting("index", "partition"),
         runtime=setting("index", "runtime"),
         slurm_account=config["slurm_account"]
     params:
@@ -90,7 +90,7 @@ rule mapping:
         sam=temp(ROOT + "/03_mapping/{sample}/assembly.sam")
     threads: setting("mapping", "threads")
     resources:
-        partition=setting("mapping", "partition"),
+        slurm_partition=setting("mapping", "partition"),
         runtime=setting("mapping", "runtime"),
         slurm_account=config["slurm_account"]
     params:
@@ -117,7 +117,7 @@ rule sort_bam:
         bai=BAM + ".bai"
     threads: setting("sort_bam", "threads")
     resources:
-        partition=setting("sort_bam", "partition"),
+        slurm_partition=setting("sort_bam", "partition"),
         runtime=setting("sort_bam", "runtime"),
         slurm_account=config["slurm_account"]
     params:

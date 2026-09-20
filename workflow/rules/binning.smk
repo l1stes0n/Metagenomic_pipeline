@@ -8,9 +8,9 @@ rule comebin:
         bins=directory(BINNING + "/comebin")
     threads: setting("comebin", "threads")
     resources:
-        partition=setting("comebin", "partition"),
+        slurm_partition=setting("comebin", "partition"),
         runtime=setting("comebin", "runtime"),
-        gpus=setting("comebin", "gpus"),
+        gpu=setting("comebin", "gpus"),
         slurm_account=config["slurm_account"]
     params:
         bamdir=lambda wc, input: str(Path(input.bam).parent.resolve()),
@@ -44,9 +44,9 @@ rule semibin2:
         bins=directory(BINNING + "/semibin2")
     threads: setting("semibin2", "threads")
     resources:
-        partition=setting("semibin2", "partition"),
+        slurm_partition=setting("semibin2", "partition"),
         runtime=setting("semibin2", "runtime"),
-        gpus=setting("semibin2", "gpus"),
+        gpu=setting("semibin2", "gpus"),
         slurm_account=config["slurm_account"]
     params:
         gpu_check=str(WORKFLOW_ROOT / "workflow/scripts/check_gpu.py")
@@ -75,9 +75,9 @@ rule metacat:
         bins=directory(BINNING + "/metacat")
     threads: setting("metacat", "threads")
     resources:
-        partition=setting("metacat", "partition"),
+        slurm_partition=setting("metacat", "partition"),
         runtime=setting("metacat", "runtime"),
-        gpus=setting("metacat", "gpus"),
+        gpu=setting("metacat", "gpus"),
         slurm_account=config["slurm_account"]
     params:
         gpu_check=str(WORKFLOW_ROOT / "workflow/scripts/check_gpu.py")
@@ -112,7 +112,7 @@ rule refinement:
         refinement=directory(REFINEMENT)
     threads: setting("refinement", "threads")
     resources:
-        partition=setting("refinement", "partition"),
+        slurm_partition=setting("refinement", "partition"),
         runtime=setting("refinement", "runtime"),
         slurm_account=config["slurm_account"]
     params:
@@ -146,7 +146,7 @@ rule prepare_mags:
         mags=directory(MAGS)
     threads: setting("prepare_mags", "threads")
     resources:
-        partition=setting("prepare_mags", "partition"),
+        slurm_partition=setting("prepare_mags", "partition"),
         runtime=setting("prepare_mags", "runtime"),
         slurm_account=config["slurm_account"]
     params:

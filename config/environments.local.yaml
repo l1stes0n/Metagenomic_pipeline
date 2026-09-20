@@ -1,4 +1,4 @@
-# Usage: snakemake --profile profiles/slurm --configfile config/environments.local.yaml
+# Usage: snakemake --workflow-profile slurm --configfile config/environments.local.yaml
 # Tools not listed here will continue to use the auto-installed environments defined in config.yaml.
 environments:
   # name for exsisting env

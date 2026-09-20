@@ -6,7 +6,7 @@ rule gtdbtk:
         taxonomy=directory(ROOT + "/07_taxonomy/{sample}")
     threads: setting("gtdbtk", "threads")
     resources:
-        partition=setting("gtdbtk", "partition"),
+        slurm_partition=setting("gtdbtk", "partition"),
         runtime=setting("gtdbtk", "runtime"),
         slurm_account=config["slurm_account"]
     params:
@@ -37,7 +37,7 @@ rule genes:
         genes=directory(ROOT + "/08_genes/{sample}")
     threads: setting("genes", "threads")
     resources:
-        partition=setting("genes", "partition"),
+        slurm_partition=setting("genes", "partition"),
         runtime=setting("genes", "runtime"),
         slurm_account=config["slurm_account"]
     conda: ENVS["pyrodigal"]
@@ -69,7 +69,7 @@ rule coverm_contig:
         table=ROOT + "/09_abundance/{sample}/contig.tsv"
     threads: setting("coverm_contig", "threads")
     resources:
-        partition=setting("coverm_contig", "partition"),
+        slurm_partition=setting("coverm_contig", "partition"),
         runtime=setting("coverm_contig", "runtime"),
         slurm_account=config["slurm_account"]
     conda: ENVS["coverm"]
@@ -92,7 +92,7 @@ rule coverm_genome:
         table=ROOT + "/09_abundance/{sample}/genome.tsv"
     threads: setting("coverm_genome", "threads")
     resources:
-        partition=setting("coverm_genome", "partition"),
+        slurm_partition=setting("coverm_genome", "partition"),
         runtime=setting("coverm_genome", "runtime"),
         slurm_account=config["slurm_account"]
     conda: ENVS["coverm"]
@@ -115,7 +115,7 @@ rule checkm:
         qc=directory(ROOT + "/10_checkm/{sample}")
     threads: setting("checkm", "threads")
     resources:
-        partition=setting("checkm", "partition"),
+        slurm_partition=setting("checkm", "partition"),
         runtime=setting("checkm", "runtime"),
         slurm_account=config["slurm_account"]
     params:
@@ -144,7 +144,7 @@ rule checkm2:
         qc=directory(ROOT + "/11_checkm2/{sample}")
     threads: setting("checkm2", "threads")
     resources:
-        partition=setting("checkm2", "partition"),
+        slurm_partition=setting("checkm2", "partition"),
         runtime=setting("checkm2", "runtime"),
         slurm_account=config["slurm_account"]
     params:
