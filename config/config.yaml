@@ -1,0 +1,90 @@
+samples: config/samples.tsv
+results_dir: results
+
+# partitions for different loads of slurm jobs.
+partitions:
+  light: x86_64_2cpu
+  cpu: x86_64_4cpu
+  assembly: x86_64_8cpu
+  gpu: x86_64_gpu800
+slurm_account: ""
+
+software:
+  # NVIDIA driver >=560.35.05, glibc >=2.28.
+  # CONDA_OVERRIDE_CUDA cuda version, set as empty string for auto detect.
+  conda_cuda_override: ""
+
+# replace each environment configuration below with name or path.
+environments:
+  fastp: workflow/envs/fastp.yaml
+  spades: workflow/envs/spades.yaml
+  binette: workflow/envs/binette.yaml
+  refinem: workflow/envs/refinem.yaml
+  minibwa: workflow/envs/minibwa.yaml
+  comebin: workflow/envs/comebin.yaml
+  semibin2: workflow/envs/semibin2.yaml
+  metacat: workflow/envs/metacat.yaml
+  gtdbtk: workflow/envs/gtdbtk.yaml
+  pyrodigal: workflow/envs/pyrodigal.yaml
+  coverm: workflow/envs/coverm.yaml
+  checkm: workflow/envs/checkm.yaml
+  checkm2: workflow/envs/checkm2.yaml
+
+resources:
+  environment_ready: {threads: 1, partition: light, runtime: 4320}
+  prepare_database: {threads: 4, partition: cpu, runtime: 4320}
+  read_qc:      {threads: 16,  partition: cpu,      runtime: 4320}
+  assembly:     {threads: 32, partition: assembly, runtime: 4320}
+  index:        {threads: 32,  partition: cpu,      runtime: 4320}
+  mapping:      {threads: 16, partition: cpu,      runtime: 4320}
+  sort_bam:     {threads: 32,  partition: cpu,      runtime: 4320}
+  comebin:      {threads: 16,  partition: gpu,      runtime: 4320, gpus: 1}
+  semibin2:     {threads: 16,  partition: gpu,      runtime: 4320, gpus: 1}
+  metacat:      {threads: 16,  partition: gpu,      runtime: 4320, gpus: 1}
+  refinement:   {threads: 32, partition: cpu,      runtime: 4320}
+  refinem_stats: {threads: 16,  partition: cpu,      runtime: 4320}
+  refinem_outliers: {threads: 1, partition: light,  runtime: 4320}
+  refinem_filter: {threads: 1, partition: light,    runtime: 4320}
+  prepare_mags: {threads: 1,  partition: light,    runtime: 4320}
+  gtdbtk:       {threads: 32, partition: cpu,      runtime: 4320}
+  genes:        {threads: 8,  partition: light,    runtime: 4320}
+  coverm_contig: {threads: 8, partition: light,    runtime: 4320}
+  coverm_genome: {threads: 8, partition: light,    runtime: 4320}
+  checkm:       {threads: 32, partition: light,    runtime: 4320}
+  checkm2:      {threads: 32, partition: light,    runtime: 4320}
+
+analysis:
+  gtdbtk: true
+  genes: true
+  checkm: true
+  checkm2: true
+
+qc:
+  qualified_quality_phred: 20
+  length_required: 50
+
+assembly:
+  memory_gb: 1500
+  kmers: "21,33,55,77,99,127"
+
+refinement:
+  # CheckM2 threshold
+  completeness: 50
+  contamination: 50
+  # Binette parameter
+  contamination_weight: 2.0
+  min_length: 200000
+  max_length: 10000000
+
+refinem:
+  enabled: true
+  gc_percentile: 98
+  td_percentile: 98
+  coverage_percent_error: 50
+  coverage_correlation: -2
+  report_type: any
+  min_alignment_fraction: 0.98
+  max_edit_distance_fraction: 0.02
+
+gtdbtk:
+  pplacer_threads: 16

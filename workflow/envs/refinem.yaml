@@ -1,0 +1,10 @@
+channels: [conda-forge, bioconda, nodefaults]
+dependencies:
+  - python=3.10
+  - refinem=0.1.2
+  - biolib=0.1.9
+  # Keep the legacy RefineM/BioLib numerical and plotting stack together.
+  - numpy=1.23.5
+  - scipy=1.10
+  - matplotlib-base=3.6
+  - mpld3=0.5

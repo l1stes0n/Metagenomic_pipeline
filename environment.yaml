@@ -1,0 +1,10 @@
+name: metagenomic-workflow
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.12
+  - snakemake-minimal>=9,<10
+  - snakemake-executor-plugin-cluster-generic>=1,<2
+  - conda
+  - pyyaml

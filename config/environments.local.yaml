@@ -1,0 +1,9 @@
+# Usage: snakemake --profile profiles/slurm --configfile config/environments.local.yaml
+# Tools not listed here will continue to use the auto-installed environments defined in config.yaml.
+environments:
+  # name for exsisting env
+  # minibwa: minibwa
+  # absolute path for exsisting env
+  # comebin: /shared/conda/envs/comebin
+  # manual env yaml
+  # coverm: workflow/envs/coverm.yaml

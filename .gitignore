@@ -1,0 +1,10 @@
+# Snakemake runtime
+.snakemake/
+
+# Workflow outputs
+logs/
+results/
+
+# Python
+__pycache__/
+*.py[cod]

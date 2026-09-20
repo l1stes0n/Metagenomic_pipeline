@@ -1,0 +1,3 @@
+channels: [conda-forge, bioconda, nodefaults]
+dependencies:
+  - fastp=1.3.6

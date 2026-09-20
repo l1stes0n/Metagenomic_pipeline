@@ -1,0 +1,6 @@
+channels: [conda-forge, bioconda, nodefaults]
+dependencies:
+  - python=3.12
+  - checkm2=1.1.0
+  - diamond=2.1.11
+  - tensorflow=2.17.0=cpu*

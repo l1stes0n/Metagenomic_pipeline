@@ -1,0 +1,4 @@
+channels: [conda-forge, bioconda, nodefaults]
+dependencies:
+  - python=3.12
+  - pyrodigal=3.7.1

@@ -1,0 +1,40 @@
+channels: [conda-forge, bioconda, nodefaults]
+dependencies:
+  # CheckM 1.2.5 requires Python <3.12. The hook installs COMEBin 1.1.0
+  # and the official PyTorch 2.13.0 CUDA 12.6 wheel.
+  # Linux x86_64, glibc >=2.28; GPU jobs require NVIDIA driver >=560.35.05.
+  - python=3.11
+  - pip
+  - setuptools=80.9.0
+  - bash
+  - coreutils
+  - bedtools=2.31.1
+  - biolib=0.1.9
+  - biopython>=1.85,<2
+  - bwa=0.7.19
+  - checkm-genome=1.2.5
+  - click>=8,<9
+  - fraggenescan=1.32
+  - hmmer=3.4
+  - hnswlib=0.8.0
+  - leidenalg=0.12.0
+  - numpy>=2,<3
+  - perl
+  # CheckM 1.2.5 requires alpha20 (upstream COMEBin's older recipe used alpha19).
+  - pplacer=1.1.alpha20
+  - prodigal=2.6.3
+  - python-igraph>=1,<2
+  - pyyaml>=6,<7
+  - samtools>=1.20,<2
+  - scikit-learn>=1.5,<1.10
+  - scipy>=1.13,<2
+  - tensorboard>=2.18,<3
+  - tqdm>=4.66,<5
+  # Install generic PyTorch dependencies with Conda. The hook constrains their
+  # exact installed versions before pip adds Torch and its CUDA runtime wheels.
+  - filelock
+  - typing_extensions>=4.10
+  - sympy>=1.13.3
+  - networkx>=2.5.1
+  - jinja2
+  - fsspec>=0.8.5

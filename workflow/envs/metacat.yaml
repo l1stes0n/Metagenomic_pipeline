@@ -1,0 +1,15 @@
+channels: [conda-forge, bioconda, nodefaults]
+dependencies:
+  # MetaCAT's official 1.0.6 wheel is installed by the same-stem hook without
+  # modifying Conda dependencies. CuPy includes the matching CUDA runtime.
+  # Linux x86_64; GPU jobs require NVIDIA driver >=560.35.05.
+  - python=3.12
+  - pip
+  - numpy
+  - scipy>=1.11
+  - matplotlib-base>=3.10
+  - scikit-learn
+  - threadpoolctl
+  - statsmodels
+  - cupy=13.6
+  - cuda-version=12.6

@@ -1,0 +1,27 @@
+# Run from the production snakemake directory: snakemake --profile profiles/slurm
+# Requires Snakemake >=9 and snakemake-executor-plugin-cluster-generic.
+executor: cluster-generic
+cluster-generic-submit-cmd: python workflow/scripts/slurm_submit.py
+cluster-generic-status-cmd: python workflow/scripts/slurm_status.py
+# cluster-generic executes this as a single executable, not as a shell command.
+cluster-generic-cancel-cmd: workflow/scripts/slurm_cancel.py
+cluster-generic-cancel-nargs: 20
+
+jobs: 20
+local-cores: 1
+latency-wait: 90
+max-jobs-per-second: 2
+max-status-checks-per-second: 5
+seconds-between-status-checks: 10
+rerun-incomplete: true
+printshellcmds: true
+software-deployment-method: conda
+
+# Zero overrides Snakemake's automatic input-size memory/disk estimates.
+# Unlike None, zero also works with the resource unit conversion in Snakemake
+# 9.27. These are internal bookkeeping values, never Slurm memory/disk requests.
+# Node selection is exclusively resources.partition; there are no Slurm memory
+# or feature requests. CPU allocation comes exclusively from rule threads.
+default-resources:
+  - mem_mb=0
+  - disk_mb=0

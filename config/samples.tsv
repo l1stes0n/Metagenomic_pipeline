@@ -1,0 +1,2 @@
+sample	r1	r2
+example	../reads/example_R1.fastq.gz	../reads/example_R2.fastq.gz

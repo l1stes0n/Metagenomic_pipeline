@@ -1,0 +1,20 @@
+# Set "mode" to "existing" to use an existing database.
+# path must point to the database root directory containing the actual data files.
+databases:
+  gtdbtk:
+    mode: download
+    path: data/databases/gtdbtk/r232
+    version: r232
+    url: https://data.ace.uq.edu.au/public/gtdb/data/releases/release232/232.0/auxillary_files/gtdbtk_package/full_package/gtdbtk_r232_data.tar.gz
+
+  checkm:
+    mode: download
+    path: data/databases/checkm/2015_01_16
+    version: "2015_01_16"
+    url: https://zenodo.org/records/7401545/files/checkm_data_2015_01_16.tar.gz
+
+  checkm2:
+    mode: download
+    path: data/databases/checkm2/v3
+    version: "3"
+    url: https://zenodo.org/records/14897628/files/checkm2_database.tar.gz

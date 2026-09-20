@@ -1,0 +1,8 @@
+channels: [conda-forge, bioconda, nodefaults]
+dependencies:
+  - python=3.12
+  - binette=1.2.1
+  - checkm2=1.1.0
+  - diamond=2.1.11
+  # These rules run in CPU partitions even when GPU environments are deployable.
+  - tensorflow=2.17.0=cpu*
