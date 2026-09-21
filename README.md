@@ -4,7 +4,7 @@
 
 A Snakemake workflow for paired-end metagenomic data, providing per-sample assembly, parallel binning, MAG refinement, taxonomy, gene prediction, quality assessment, and abundance estimation. It supports multiple samples, resumable execution, and automated software and database deployment.
 
-The workflow integrates fastp, metaSPAdes, MEGAHIT, minibwa, samtools, COMEBin, SemiBin2, MetaCAT, Binette, RefineM, GTDB-Tk, Pyrodigal, CheckM, CheckM2, and CoverM.
+The workflow integrates fastp, metaSPAdes, MEGAHIT, minibwa, samtools, COMEBin, SemiBin2, MetaCAT, Binette, RefineM, dRep, GTDB-Tk, Pyrodigal, CheckM, CheckM2, and CoverM.
 
 ## Workflow Overview
 
@@ -52,7 +52,10 @@ The workflow integrates fastp, metaSPAdes, MEGAHIT, minibwa, samtools, COMEBin, 
                        RefineM filter_bins
                                 │
                                 ▼
-                        Final MAGs (.fna)
+                 dRep (within-sample, optional)
+                                │
+                                ▼
+                         Final MAGs (.fna)
                                 │
       ┌────────────┬────────────┼────────────┬───────────────┐
       │            │            │            │               │
@@ -61,7 +64,10 @@ The workflow integrates fastp, metaSPAdes, MEGAHIT, minibwa, samtools, COMEBin, 
       │            │            │            │               │
       └────────────┴────────────┼────────────┴───────────────┘
                                 ▼
-                        results/ + logs/
+                  dRep (cross-sample, optional)
+                                │
+                                ▼
+                         results/ + logs/
 
 Reference databases (prepared once, shared by all samples)
   ├── GTDB-Tk R232 ────────► GTDB-Tk taxonomy
@@ -107,6 +113,7 @@ The control environment uses Snakemake 9 and the Slurm executor plugin. Tool-spe
 | pyrodigal | `workflow/envs/pyrodigal.yaml` |
 | checkm | `workflow/envs/checkm.yaml` |
 | checkm2 | `workflow/envs/checkm2.yaml` |
+| drep | `workflow/envs/drep.yaml` |
 | coverm | `workflow/envs/coverm.yaml` |
 
 To pre-install all tool environments:
@@ -423,6 +430,17 @@ Configure these values under `refinem`, or set `enabled: false` to disable filte
 
 See the [official RefineM contamination-identification workflow](https://github.com/donovan-h-parks/RefineM#identifying-potential-contamination).
 
+### dRep Dereplication
+
+dRep is optional and controlled by `drep.sample` and `drep.cross_sample` (both disabled by default).
+
+- Within-sample (`drep.sample`): each sample's normalized MAGs are quality-checked with CheckM2 and dereplicated before the downstream branches, which then read `06_drep/<sample>/mags/`.
+- Cross-sample (`drep.cross_sample`): the final per-sample MAGs of all samples are pooled and dereplicated into `12_drep/mags/`.
+
+Thresholds are configured under `drep`: `ani` (`-sa`, default 0.95), `coverage` (`-nc`, default 0.1), `completeness` (`-comp`, default 75), `contamination` (`-con`, default 25), and `min_length` (`-l`, default 50000). CheckM2 quality is passed through `--genomeInfo` and all other dRep settings keep their defaults. The pre-dereplication CheckM2 reports are separate from the downstream CheckM and CheckM2 branches.
+
+See the [dRep documentation](https://drep.readthedocs.io/en/latest/).
+
 ### Final Quality Assessment
 
 CheckM and CheckM2 reassess the final MAGs **after RefineM filtering**. Binette's intermediate quality table describes pre-filtering bins only.
@@ -474,7 +492,9 @@ See the [CoverM documentation](https://github.com/wwood/CoverM).
 | `04_binning/<sample>/<binner>/` | Raw outputs from the three binners and normalized `.fa` bins |
 | `05_refinement/<sample>/` | Binette `final_bins/` and pre-filtering quality table |
 | `05_refinem/<sample>/` | Scaffold statistics, outlier tables, filtered bins, and retention records |
-| `06_mags/<sample>/*.fna` | Final MAGs used by all downstream branches |
+| `06_mags/<sample>/*.fna` | Normalized per-sample MAGs; pre-dereplication input when `drep.sample` is enabled |
+| `06_drep/<sample>/` | Within-sample dRep MAGs, CheckM2 report, and dRep output (when enabled) |
+| `12_drep/` | Cross-sample MAG pool, CheckM2 report, and dRep output (when enabled) |
 | `07_taxonomy/<sample>/` | GTDB-Tk taxonomy results |
 | `08_genes/<sample>/` | Per-MAG protein `.faa`, gene `.ffn`, and `.gff` files |
 | `09_abundance/<sample>/{contig,genome}.tsv` | CoverM abundance tables |

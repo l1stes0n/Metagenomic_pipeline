@@ -1,6 +1,6 @@
 rule gtdbtk:
     input:
-        mags=rules.prepare_mags.output.mags,
+        mags=MAGS_SOURCE,
         database=database_ready("gtdbtk")
     output:
         taxonomy=directory(ROOT + "/07_taxonomy/{sample}")
@@ -32,7 +32,7 @@ rule gtdbtk:
 
 rule genes:
     input:
-        mags=rules.prepare_mags.output.mags
+        mags=MAGS_SOURCE
     output:
         genes=directory(ROOT + "/08_genes/{sample}")
     threads: setting("genes", "threads")
@@ -87,7 +87,7 @@ rule coverm_genome:
     input:
         bam=rules.sort_bam.output.bam,
         bai=rules.sort_bam.output.bai,
-        mags=rules.prepare_mags.output.mags
+        mags=MAGS_SOURCE
     output:
         table=ROOT + "/09_abundance/{sample}/genome.tsv"
     threads: setting("coverm_genome", "threads")
@@ -109,7 +109,7 @@ rule coverm_genome:
 
 rule checkm:
     input:
-        mags=rules.prepare_mags.output.mags,
+        mags=MAGS_SOURCE,
         database=database_ready("checkm")
     output:
         qc=directory(ROOT + "/10_checkm/{sample}")
@@ -138,7 +138,7 @@ rule checkm:
 
 rule checkm2:
     input:
-        mags=rules.prepare_mags.output.mags,
+        mags=MAGS_SOURCE,
         database=database_ready("checkm2")
     output:
         qc=directory(ROOT + "/11_checkm2/{sample}")

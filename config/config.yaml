@@ -31,6 +31,7 @@ environments:
   coverm: workflow/envs/coverm.yaml
   checkm: workflow/envs/checkm.yaml
   checkm2: workflow/envs/checkm2.yaml
+  drep: workflow/envs/drep.yaml
 
 resources:
   environment_ready: {threads: 1, partition: light, runtime: 4320}
@@ -54,6 +55,8 @@ resources:
   coverm_genome: {threads: 8, partition: light,    runtime: 4320}
   checkm:       {threads: 32, partition: light,    runtime: 4320}
   checkm2:      {threads: 32, partition: light,    runtime: 4320}
+  drep:         {threads: 32, partition: cpu,      runtime: 4320}
+  drep_cross:   {threads: 32, partition: cpu,      runtime: 4320}
 
 analysis:
   gtdbtk: true
@@ -91,6 +94,15 @@ refinem:
   report_type: any
   min_alignment_fraction: 0.98
   max_edit_distance_fraction: 0.02
+
+drep:
+  sample: false
+  cross_sample: false
+  ani: 0.95
+  coverage: 0.1
+  completeness: 75
+  contamination: 25
+  min_length: 50000
 
 gtdbtk:
   pplacer_threads: 16

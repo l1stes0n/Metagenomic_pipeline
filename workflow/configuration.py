@@ -8,7 +8,7 @@ STEPS = (
     "environment_ready", "prepare_database", "read_qc", "assembly", "index", "mapping", "sort_bam", "comebin", "semibin2",
     "metacat", "refinement", "refinem_stats", "refinem_outliers", "refinem_filter",
     "prepare_mags", "gtdbtk", "genes", "coverm_contig",
-    "coverm_genome", "checkm", "checkm2",
+    "coverm_genome", "checkm", "checkm2", "drep", "drep_cross",
 )
 
 
@@ -88,6 +88,21 @@ def validate_config(config):
     memory = assembly.get("megahit_memory_gb", 0.9)
     if isinstance(memory, bool) or not isinstance(memory, (int, float)) or memory <= 0:
         raise ValueError("assembly.megahit_memory_gb must be a positive number")
+    drep = config.get("drep", {})
+    for key in ("sample", "cross_sample"):
+        if not isinstance(drep.get(key, False), bool):
+            raise ValueError(f"drep.{key} must be true or false")
+    for key, default in (("ani", 0.95), ("coverage", 0.1)):
+        value = drep.get(key, default)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 < value <= 1:
+            raise ValueError(f"drep.{key} must be a number between 0 and 1")
+    for key, default in (("completeness", 75), ("contamination", 25)):
+        value = drep.get(key, default)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value <= 100:
+            raise ValueError(f"drep.{key} must be a number between 0 and 100")
+    min_length = drep.get("min_length", 50000)
+    if isinstance(min_length, bool) or not isinstance(min_length, (int, float)) or min_length <= 0:
+        raise ValueError("drep.min_length must be a positive number")
     positive_int(config["gtdbtk"]["pplacer_threads"], "gtdbtk.pplacer_threads")
     positive_int(config["qc"]["length_required"], "qc.length_required")
     positive_int(config["qc"]["qualified_quality_phred"], "qc.qualified_quality_phred")

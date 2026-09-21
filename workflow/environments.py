@@ -19,19 +19,24 @@ TOOL_EXECUTABLES = {
     "coverm": ("coverm",),
     "checkm": ("checkm",),
     "checkm2": ("checkm2",),
+    "drep": ("dRep",),
 }
 
 ASSEMBLY_TOOLS = ("spades", "megahit")
+OPTIONAL_TOOLS = ("drep",)
 
 
-def active_tool_executables(assembly_tool):
+def active_tool_executables(assembly_tool, drep_enabled=False):
     if assembly_tool not in ASSEMBLY_TOOLS:
         raise ValueError(f"assembly.tool must be one of {ASSEMBLY_TOOLS}; got {assembly_tool!r}")
-    return {
+    active = {
         tool: executables
         for tool, executables in TOOL_EXECUTABLES.items()
         if tool not in ASSEMBLY_TOOLS or tool == assembly_tool
     }
+    if not drep_enabled:
+        active.pop("drep", None)
+    return active
 
 
 def configure_conda(software, environ=None):
@@ -44,13 +49,15 @@ def configure_conda(software, environ=None):
         environ.setdefault("CONDA_OVERRIDE_CUDA", version)
 
 
-def resolve_environments(specifications, workflow_root, assembly_tool):
+def resolve_environments(specifications, workflow_root, assembly_tool, drep_enabled=False):
     """YAML -> deploy; name/prefix -> activate only, with no install hooks."""
     if not isinstance(specifications, dict):
         raise ValueError("environments must map each tool to an environment YAML, name or path")
     if assembly_tool not in ASSEMBLY_TOOLS:
         raise ValueError(f"assembly.tool must be one of {ASSEMBLY_TOOLS}; got {assembly_tool!r}")
-    required = (set(TOOL_EXECUTABLES) - set(ASSEMBLY_TOOLS)) | {assembly_tool}
+    required = (set(TOOL_EXECUTABLES) - set(ASSEMBLY_TOOLS) - set(OPTIONAL_TOOLS)) | {assembly_tool}
+    if drep_enabled:
+        required.add("drep")
     missing = required - set(specifications)
     unknown = set(specifications) - set(TOOL_EXECUTABLES)
     if missing or unknown:

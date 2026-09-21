@@ -20,8 +20,11 @@ configure_conda(config["software"])
 SAMPLE_DATA = load_samples(config["samples"])
 SAMPLES = list(SAMPLE_DATA)
 ASSEMBLY_TOOL = config["assembly"].get("tool", "spades")
-ENVS = resolve_environments(config["environments"], WORKFLOW_ROOT, ASSEMBLY_TOOL)
-ACTIVE_TOOLS = active_tool_executables(ASSEMBLY_TOOL)
+DREP_SAMPLE = config.get("drep", {}).get("sample", False)
+DREP_CROSS = config.get("drep", {}).get("cross_sample", False)
+DREP_ENABLED = DREP_SAMPLE or DREP_CROSS
+ENVS = resolve_environments(config["environments"], WORKFLOW_ROOT, ASSEMBLY_TOOL, DREP_ENABLED)
+ACTIVE_TOOLS = active_tool_executables(ASSEMBLY_TOOL, DREP_ENABLED)
 PYTHON = sys.executable
 BIN_UTILS = str(WORKFLOW_ROOT / "workflow/scripts/bin_utils.py")
 
@@ -50,6 +53,7 @@ BINNING = ROOT + "/04_binning/{sample}"
 REFINEMENT = ROOT + "/05_refinement/{sample}"
 REFINEM = ROOT + "/05_refinem/{sample}"
 MAGS = ROOT + "/06_mags/{sample}"
+MAGS_SOURCE = ROOT + "/06_drep/{sample}/mags" if DREP_SAMPLE else MAGS
 
 FINAL_TARGETS = expand(MAGS, sample=SAMPLES)
 FINAL_TARGETS += expand(ROOT + "/09_abundance/{sample}/contig.tsv", sample=SAMPLES)
@@ -58,6 +62,8 @@ for enabled, folder in (("gtdbtk", "07_taxonomy"), ("genes", "08_genes"),
                         ("checkm", "10_checkm"), ("checkm2", "11_checkm2")):
     if config["analysis"][enabled]:
         FINAL_TARGETS += expand(ROOT + "/" + folder + "/{sample}", sample=SAMPLES)
+if DREP_CROSS:
+    FINAL_TARGETS.append(ROOT + "/12_drep/mags")
 
 wildcard_constraints:
     sample="(?:" + "|".join(__import__("re").escape(s) for s in SAMPLES) + ")"
@@ -72,4 +78,5 @@ include: "workflow/rules/environments.smk"
 include: "workflow/rules/databases.smk"
 include: "workflow/rules/binning.smk"
 include: "workflow/rules/refinem.smk"
+include: "workflow/rules/drep.smk"
 include: "workflow/rules/downstream.smk"

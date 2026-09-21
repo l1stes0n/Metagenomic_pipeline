@@ -4,7 +4,7 @@
 
 一个面向双端宏基因组数据的 Snakemake 工作流，支持逐样本组装、并行分箱、MAG 精炼、分类注释、基因预测、质量评估和丰度计算，并提供多样本处理、断点续跑以及软件和数据库的自动部署。
 
-本工作流主要使用 fastp、metaSPAdes、MEGAHIT、minibwa、samtools、COMEBin、SemiBin2、MetaCAT、Binette、RefineM、GTDB-Tk、Pyrodigal、CheckM、CheckM2 和 CoverM。
+本工作流主要使用 fastp、metaSPAdes、MEGAHIT、minibwa、samtools、COMEBin、SemiBin2、MetaCAT、Binette、RefineM、dRep、GTDB-Tk、Pyrodigal、CheckM、CheckM2 和 CoverM。
 
 ## 工作流概览
 
@@ -52,7 +52,10 @@
                        RefineM filter_bins
                                 │
                                 ▼
-                        Final MAGs (.fna)
+                 dRep (within-sample, optional)
+                                │
+                                ▼
+                         Final MAGs (.fna)
                                 │
       ┌────────────┬────────────┼────────────┬───────────────┐
       │            │            │            │               │
@@ -61,7 +64,10 @@
       │            │            │            │               │
       └────────────┴────────────┼────────────┴───────────────┘
                                 ▼
-                        results/ + logs/
+                  dRep (cross-sample, optional)
+                                │
+                                ▼
+                         results/ + logs/
 
 Reference databases (prepared once, shared by all samples)
   ├── GTDB-Tk R232 ────────► GTDB-Tk taxonomy
@@ -107,6 +113,7 @@ conda activate metagenomic-workflow
 | pyrodigal | `workflow/envs/pyrodigal.yaml` |
 | checkm | `workflow/envs/checkm.yaml` |
 | checkm2 | `workflow/envs/checkm2.yaml` |
+| drep | `workflow/envs/drep.yaml` |
 | coverm | `workflow/envs/coverm.yaml` |
 
 预安装全部工具环境：
@@ -423,6 +430,17 @@ scaffold_stats -> outliers -> filter_bins
 
 参见 [RefineM 官方污染识别流程](https://github.com/donovan-h-parks/RefineM#identifying-potential-contamination)。
 
+### dRep 去冗余
+
+dRep 为可选步骤，由 `drep.sample` 和 `drep.cross_sample` 控制（默认均关闭）。
+
+- 样本内（`drep.sample`）：对每个样本归一化后的 MAGs 先用 CheckM2 评估质量，再去冗余；后续所有下游分支改用 `06_drep/<sample>/mags/`。
+- 跨样本（`drep.cross_sample`）：汇总所有样本的最终 MAGs 去冗余，输出到 `12_drep/mags/`。
+
+阈值在 `drep` 中配置：`ani`（`-sa`，默认 0.95）、`coverage`（`-nc`，默认 0.1）、`completeness`（`-comp`，默认 75）、`contamination`（`-con`，默认 25）、`min_length`（`-l`，默认 50000）。CheckM2 质量通过 `--genomeInfo` 传入，其余 dRep 参数保持默认。去冗余前的 CheckM2 报告与下游 CheckM/CheckM2 分支相互独立。
+
+参见 [dRep 文档](https://drep.readthedocs.io/en/latest/)。
+
 ### 最终质量评估
 
 CheckM 和 CheckM2 会对 **RefineM 过滤后**的最终 MAGs 重新评估。Binette 的中间质量表只描述过滤前的 bins。
@@ -474,7 +492,9 @@ CoverM 基于组装 BAM 以两种模式计算丰度：`coverm contig`，以及�
 | `04_binning/<sample>/<binner>/` | 三种分箱工具的原始结果和统一格式的 `.fa` bins |
 | `05_refinement/<sample>/` | Binette `final_bins/` 和过滤前质量表 |
 | `05_refinem/<sample>/` | scaffold 统计、离群表、过滤后的 bins 和保留记录 |
-| `06_mags/<sample>/*.fna` | 所有下游分支使用的最终 MAGs |
+| `06_mags/<sample>/*.fna` | 归一化后的每样本 MAGs；启用 `drep.sample` 时为去冗余前的输入 |
+| `06_drep/<sample>/` | 样本内 dRep 的 MAGs、CheckM2 报告与 dRep 输出（启用时） |
+| `12_drep/` | 跨样本 MAG 汇总、CheckM2 报告与 dRep 输出（启用时） |
 | `07_taxonomy/<sample>/` | GTDB-Tk 分类结果 |
 | `08_genes/<sample>/` | 每个 MAG 的蛋白 `.faa`、基因 `.ffn` 和 `.gff` 文件 |
 | `09_abundance/<sample>/{contig,genome}.tsv` | CoverM 丰度表 |
