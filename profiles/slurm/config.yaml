@@ -10,12 +10,15 @@ max-status-checks-per-second: 5
 # The Slurm plugin enforces a 40 s minimum between status check rounds.
 seconds-between-status-checks: 40
 rerun-incomplete: true
+keep-going: true
+retries: 2
 printshellcmds: true
 software-deployment-method: conda
 
 # Keep the documented logs/slurm location and retain successful job logs.
 slurm-logdir: logs/slurm
 slurm-keep-successful-logs: true
+slurm-requeue: true
 
 # Zero disables Snakemake's automatic input-size estimates. The Slurm plugin
 # maps mem_mb to --mem only when it is nonzero, so no memory request is sent.

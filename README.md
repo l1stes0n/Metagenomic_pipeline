@@ -319,7 +319,13 @@ snakemake \
   --jobs 20
 ```
 
-`--jobs` limits concurrent jobs, while each rule's `threads` value controls its CPU request. Run Snakemake in `tmux` for long analyses. Rerun the same command to resume; the profile enables `rerun-incomplete`.
+`--jobs` limits concurrent jobs, while each rule's `threads` value controls its CPU request. Run Snakemake in `tmux` for long analyses. Rerun the same command to resume; the profile enables `rerun-incomplete`. It also enables `keep-going`: a failed job stops only the samples that depend on it, other samples continue, and the run exits with a non-zero status after listing the failed jobs. Failed jobs are retried twice, and `slurm-requeue` lets Slurm requeue them when the cluster allows it.
+
+After the run finishes, or after a failure, summarize the run in a self-contained HTML report (statistics, provenance, and available results):
+
+```bash
+snakemake --report report.html
+```
 
 Example resource overrides:
 

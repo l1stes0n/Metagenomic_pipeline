@@ -319,7 +319,13 @@ snakemake \
   --jobs 20
 ```
 
-`--jobs` 限制同时在途的作业数，每条规则的 CPU 请求由其 `threads` 决定。长期运行建议在 `tmux` 中启动 Snakemake。中断后重新执行相同命令即可续跑，profile 已启用 `rerun-incomplete`。
+`--jobs` 限制同时在途的作业数，每条规则的 CPU 请求由其 `threads` 决定。长期运行建议在 `tmux` 中启动 Snakemake。中断后重新执行相同命令即可续跑，profile 已启用 `rerun-incomplete`。Profile 同时启用了 `keep-going`：作业失败只会终止依赖它的样本分支，其他样本继续运行；运行结束后会列出失败作业并以非零状态退出。失败作业会重试两次；`slurm-requeue` 让 Slurm 在集群允许时自动重新排队。
+
+运行结束或失败后，可用以下命令生成自包含的 HTML 汇总报告（运行统计、来源信息与已有结果）：
+
+```bash
+snakemake --report report.html
+```
 
 资源覆盖示例：
 
