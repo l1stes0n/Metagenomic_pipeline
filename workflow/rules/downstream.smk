@@ -159,7 +159,5 @@ rule checkm2:
             if [[ -n "$database_path" ]]; then export CHECKM2DB="$database_path"; fi
             checkm2 predict -i {input.mags:q} -o {output.qc:q} -t {threads} -x fna --allmodels
             require_nonempty {output.qc:q}/quality_report.tsv
-            {PYTHON:q} {BIN_UTILS:q} checkm2-csv {output.qc:q}/quality_report.tsv \
-                {input.mags:q} {output.qc:q}/genomeInformation.csv
         }} > {log:q} 2>&1
         """

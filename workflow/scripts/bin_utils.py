@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Normalize FASTA extensions/headers without changing contig IDs; export CheckM2 QC."""
+"""Normalize FASTA extensions/headers without changing contig IDs."""
 import argparse
 import csv
 import gzip
@@ -55,23 +55,6 @@ def normalize_bins(source, destination, extension, skip_empty=False, report=None
         raise ValueError(f"No nonempty bins remain in {source}")
 
 
-def checkm2_csv(report, bins, output):
-    with open(report, newline="") as src, open(output, "w", newline="") as dst:
-        reader = csv.DictReader(src, delimiter="\t")
-        required = {"Name", "Completeness", "Contamination"}
-        if not required.issubset(reader.fieldnames or []):
-            raise ValueError(f"{report}: missing columns {required}")
-        writer = csv.writer(dst)
-        writer.writerow(["genome", "completeness", "contamination"])
-        for row in reader:
-            name = row["Name"]
-            # CheckM2 generally drops the extension, but accept versions retaining it.
-            filename = name if name.endswith(".fna") else name + ".fna"
-            if not (Path(bins) / filename).is_file():
-                raise ValueError(f"CheckM2 reports unknown genome: {filename}")
-            writer.writerow([filename, row["Completeness"], row["Contamination"]])
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -81,15 +64,8 @@ def main():
     bins.add_argument("--extension", choices=("fa", "fna"), required=True)
     bins.add_argument("--skip-empty", action="store_true", help="Record and omit bins emptied by RefineM")
     bins.add_argument("--report", help="Write a bin retention TSV")
-    qc = commands.add_parser("checkm2-csv")
-    qc.add_argument("report")
-    qc.add_argument("bins")
-    qc.add_argument("output")
     args = parser.parse_args()
-    if args.command == "normalize":
-        normalize_bins(args.source, args.destination, args.extension, args.skip_empty, args.report)
-    else:
-        checkm2_csv(args.report, args.bins, args.output)
+    normalize_bins(args.source, args.destination, args.extension, args.skip_empty, args.report)
 
 
 if __name__ == "__main__":

@@ -467,7 +467,7 @@ See the [CoverM documentation](https://github.com/wwood/CoverM).
 | `08_genes/<sample>/` | Per-MAG protein `.faa`, gene `.ffn`, and `.gff` files |
 | `09_abundance/<sample>/{contig,genome}.tsv` | CoverM abundance tables |
 | `10_checkm/<sample>/quality_report.tsv` | CheckM assessment of final MAGs |
-| `11_checkm2/<sample>/` | CheckM2 quality table and dRep-compatible CSV for final MAGs |
+| `11_checkm2/<sample>/quality_report.tsv` | CheckM2 quality report for final MAGs |
 
 Each sample is assembled, binned, and quantified independently. CoverM uses the same assembly BAM as the binning stage. FASTA normalization preserves contig identifiers so that they remain consistent with BAM references.
 

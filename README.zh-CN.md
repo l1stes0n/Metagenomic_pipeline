@@ -467,7 +467,7 @@ CoverM 基于组装 BAM 以两种模式计算丰度：`coverm contig`，以及�
 | `08_genes/<sample>/` | 每个 MAG 的蛋白 `.faa`、基因 `.ffn` 和 `.gff` 文件 |
 | `09_abundance/<sample>/{contig,genome}.tsv` | CoverM 丰度表 |
 | `10_checkm/<sample>/quality_report.tsv` | 最终 MAGs 的 CheckM 评估结果 |
-| `11_checkm2/<sample>/` | 最终 MAGs 的 CheckM2 质量表和兼容 dRep 的 CSV |
+| `11_checkm2/<sample>/quality_report.tsv` | 最终 MAGs 的 CheckM2 质量报告 |
 
 每个样本分别进行组装、分箱和丰度计算，不执行跨样本去冗余或交叉回贴。
 
