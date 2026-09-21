@@ -4,7 +4,7 @@
 
 一个面向双端宏基因组数据的 Snakemake 工作流，支持逐样本组装、并行分箱、MAG 精炼、分类注释、基因预测、质量评估和丰度计算，并提供多样本处理、断点续跑以及软件和数据库的自动部署。
 
-本工作流主要使用 fastp、metaSPAdes、minibwa、samtools、COMEBin、SemiBin2、MetaCAT、Binette、RefineM、GTDB-Tk、Pyrodigal、CheckM、CheckM2 和 CoverM。
+本工作流主要使用 fastp、metaSPAdes、MEGAHIT、minibwa、samtools、COMEBin、SemiBin2、MetaCAT、Binette、RefineM、GTDB-Tk、Pyrodigal、CheckM、CheckM2 和 CoverM。
 
 ## 工作流概览
 
@@ -20,7 +20,7 @@
             ├───────────────────────────────────────┐
             │                                       │
             ▼                                       │
-  metaSPAdes (assembly)                             │
+  metaSPAdes/MEGAHIT (assembly)                     │
             │                                       │
             ▼                                       │
      scaffolds.fasta                                │
@@ -96,6 +96,7 @@ conda activate metagenomic-workflow
 | --- | --- |
 | fastp | `workflow/envs/fastp.yaml` |
 | spades | `workflow/envs/spades.yaml` |
+| megahit | `workflow/envs/megahit.yaml` |
 | minibwa | `workflow/envs/minibwa.yaml` |
 | comebin | `workflow/envs/comebin.yaml` |
 | semibin2 | `workflow/envs/semibin2.yaml` |
@@ -301,7 +302,7 @@ Profile 使用官方 [Slurm executor 插件](https://snakemake.github.io/snakema
 
 插件不会清理继承的 `SBATCH_*` 或 `SLURM_*` 变量；如果集群环境预设了这些变量，请在干净的环境中启动 Snakemake。
 
-`assembly.memory_gb` 仅通过 `metaspades.py -m` 设置 **metaSPAdes 的程序内存上限**，不是 Slurm 内存请求。默认值 1500 GB 沿用原始脚本，应根据组装分区节点的实际内存和允许的并发数量进行调整。
+`assembly.memory_gb` 仅设置 metaSPAdes 的程序内存上限（`metaspades.py -m`），`assembly.megahit_memory_gb` 仅设置 MEGAHIT 的程序内存上限（`megahit -m`），二者都不是 Slurm 内存请求。请根据组装节点的可用内存设置。
 
 minibwa 可能额外创建两个 I/O 线程，因此 mapping worker 数计算为 `max(1, threads - 2)`。BAM 排序和索引单独运行，`samtools -@` 使用 `threads - 1`。
 
@@ -368,9 +369,14 @@ fastp 默认启用双端 adapter 检测，合格碱基阈值为 Q20，最短 rea
 
 ### 组装
 
-每个样本独立使用 **metaSPAdes** 的 `--only-assembler` 模式组装。默认 k-mer 为 21、33、55、77、99 和 127；`assembly.kmers` 与 `assembly.memory_gb` 分别设置 k-mer 列表和 metaSPAdes 内存上限（`-m`）。组装结果输出到 `02_assembly/<sample>/scaffolds.fasta`。
+组装器由 `assembly.tool` 选择：
 
-参见 [SPAdes 文档](https://github.com/ablab/spades)。
+- `spades`（默认）：使用 metaSPAdes 的 `--only-assembler` 模式；`assembly.kmers` 设置 k-mer 列表，`assembly.memory_gb` 设置内存上限（`-m`）。
+- `megahit`：使用 MEGAHIT，`assembly.min_contig_len` 对应 `--min-contig-len`（默认 1000），`assembly.megahit_memory_gb` 对应内存上限（默认 0.9）。小于 1 的值视为总内存比例并原样传给 `-m`；大于等于 1 的值视为 GB 并换算为字节。`assembly.megahit_preset` 可选 `meta-sensitive` 或 `meta-large` 传给 `--presets`，留空则不传该参数。MEGAHIT 的其余参数保持默认。
+
+两种组装器都输出 `02_assembly/<sample>/scaffolds.fasta`；MEGAHIT 的中间文件在组装完成后会被删除。
+
+参见 [SPAdes](https://github.com/ablab/spades) 与 [MEGAHIT](https://github.com/voutcn/megahit) 文档。
 
 ### 比对
 
@@ -463,7 +469,7 @@ CoverM 基于组装 BAM 以两种模式计算丰度：`coverm contig`，以及�
 | 路径 | 内容 |
 | --- | --- |
 | `01_qc/<sample>/` | fastp 过滤后的 reads 以及 HTML/JSON 报告 |
-| `02_assembly/<sample>/scaffolds.fasta` | metaSPAdes 组装结果 |
+| `02_assembly/<sample>/scaffolds.fasta` | metaSPAdes 或 MEGAHIT 组装结果 |
 | `03_mapping/<sample>/` | minibwa 索引以及排序后的 BAM/BAI 文件 |
 | `04_binning/<sample>/<binner>/` | 三种分箱工具的原始结果和统一格式的 `.fa` bins |
 | `05_refinement/<sample>/` | Binette `final_bins/` 和过滤前质量表 |

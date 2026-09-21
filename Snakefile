@@ -12,14 +12,16 @@ configfile: "config/databases.yaml"
 WORKFLOW_ROOT = Path(workflow.basedir).resolve()
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(WORKFLOW_ROOT / "workflow"))
-from configuration import load_samples, validate_config
-from environments import configure_conda, resolve_environments, TOOL_EXECUTABLES
+from configuration import load_samples, megahit_memory, megahit_preset_option, validate_config
+from environments import active_tool_executables, configure_conda, resolve_environments
 
 ROOT = validate_config(config)
 configure_conda(config["software"])
 SAMPLE_DATA = load_samples(config["samples"])
 SAMPLES = list(SAMPLE_DATA)
-ENVS = resolve_environments(config["environments"], WORKFLOW_ROOT)
+ASSEMBLY_TOOL = config["assembly"].get("tool", "spades")
+ENVS = resolve_environments(config["environments"], WORKFLOW_ROOT, ASSEMBLY_TOOL)
+ACTIVE_TOOLS = active_tool_executables(ASSEMBLY_TOOL)
 PYTHON = sys.executable
 BIN_UTILS = str(WORKFLOW_ROOT / "workflow/scripts/bin_utils.py")
 

@@ -2,14 +2,14 @@
 
 rule prepare_environments:
     input:
-        expand(ROOT + "/00_environments/{tool}.ready.json", tool=TOOL_EXECUTABLES)
+        expand(ROOT + "/00_environments/{tool}.ready.json", tool=ACTIVE_TOOLS)
 
 
 rule environment_ready:
     output:
         ROOT + "/00_environments/{tool}.ready.json"
     wildcard_constraints:
-        tool="|".join(TOOL_EXECUTABLES)
+        tool="|".join(ACTIVE_TOOLS)
     threads: setting("environment_ready", "threads")
     resources:
         slurm_partition=setting("environment_ready", "partition"),
@@ -19,7 +19,7 @@ rule environment_ready:
         checker=str(WORKFLOW_ROOT / "workflow/scripts/check_environment.py"),
         python=PYTHON,
         specification=lambda wc: ENVS[wc.tool],
-        executables=lambda wc: list(TOOL_EXECUTABLES[wc.tool])
+        executables=lambda wc: list(ACTIVE_TOOLS[wc.tool])
     conda:
         lambda wc: ENVS[wc.tool]
     log:

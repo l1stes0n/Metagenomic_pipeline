@@ -30,32 +30,65 @@ rule read_qc:
         """
 
 
-rule assembly:
-    input:
-        qc=rules.read_qc.output.qc
-    output:
-        assembly=directory(ASSEMBLY)
-    threads: setting("assembly", "threads")
-    resources:
-        slurm_partition=setting("assembly", "partition"),
-        runtime=setting("assembly", "runtime"),
-        slurm_account=config["slurm_account"]
-    params:
-        memory_gb=config["assembly"]["memory_gb"],
-        kmers=config["assembly"]["kmers"]
-    conda: ENVS["spades"]
-    log: "logs/assembly/{sample}.log"
-    shell:
-        r"""
-        limit_threads {threads}
-        {{
-            metaspades.py -1 {input.qc:q}/final_pure_reads_1.fastq \
-                -2 {input.qc:q}/final_pure_reads_2.fastq -t {threads} \
-                -m {params.memory_gb} -k {params.kmers:q} --only-assembler \
-                -o {output.assembly:q}
-            require_nonempty {output.assembly:q}/scaffolds.fasta
-        }} > {log:q} 2>&1
-        """
+if config["assembly"].get("tool", "spades") == "megahit":
+    rule assembly:
+        input:
+            qc=rules.read_qc.output.qc
+        output:
+            assembly=directory(ASSEMBLY)
+        threads: setting("assembly", "threads")
+        resources:
+            slurm_partition=setting("assembly", "partition"),
+            runtime=setting("assembly", "runtime"),
+            slurm_account=config["slurm_account"]
+        params:
+            memory=megahit_memory(config["assembly"].get("megahit_memory_gb", 0.9)),
+            min_contig_len=config["assembly"].get("min_contig_len", 1000),
+            presets=megahit_preset_option(config["assembly"].get("megahit_preset", ""))
+        conda: ENVS["megahit"]
+        log: "logs/assembly/{sample}.log"
+        shell:
+            r"""
+            limit_threads {threads}
+            {{
+                mkdir -p {output.assembly:q}
+                rm -rf {output.assembly:q}/megahit
+                megahit -1 {input.qc:q}/final_pure_reads_1.fastq \
+                    -2 {input.qc:q}/final_pure_reads_2.fastq -t {threads} \
+                    -m {params.memory} --min-contig-len {params.min_contig_len} \
+                    {params.presets} -o {output.assembly:q}/megahit
+                mv {output.assembly:q}/megahit/final.contigs.fa {output.assembly:q}/scaffolds.fasta
+                rm -rf {output.assembly:q}/megahit
+                require_nonempty {output.assembly:q}/scaffolds.fasta
+            }} > {log:q} 2>&1
+            """
+else:
+    rule assembly:
+        input:
+            qc=rules.read_qc.output.qc
+        output:
+            assembly=directory(ASSEMBLY)
+        threads: setting("assembly", "threads")
+        resources:
+            slurm_partition=setting("assembly", "partition"),
+            runtime=setting("assembly", "runtime"),
+            slurm_account=config["slurm_account"]
+        params:
+            memory_gb=config["assembly"]["memory_gb"],
+            kmers=config["assembly"]["kmers"]
+        conda: ENVS["spades"]
+        log: "logs/assembly/{sample}.log"
+        shell:
+            r"""
+            limit_threads {threads}
+            {{
+                metaspades.py -1 {input.qc:q}/final_pure_reads_1.fastq \
+                    -2 {input.qc:q}/final_pure_reads_2.fastq -t {threads} \
+                    -m {params.memory_gb} -k {params.kmers:q} --only-assembler \
+                    -o {output.assembly:q}
+                require_nonempty {output.assembly:q}/scaffolds.fasta
+            }} > {log:q} 2>&1
+            """
 
 
 rule index:

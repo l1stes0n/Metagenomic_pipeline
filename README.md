@@ -4,7 +4,7 @@
 
 A Snakemake workflow for paired-end metagenomic data, providing per-sample assembly, parallel binning, MAG refinement, taxonomy, gene prediction, quality assessment, and abundance estimation. It supports multiple samples, resumable execution, and automated software and database deployment.
 
-The workflow integrates fastp, metaSPAdes, minibwa, samtools, COMEBin, SemiBin2, MetaCAT, Binette, RefineM, GTDB-Tk, Pyrodigal, CheckM, CheckM2, and CoverM.
+The workflow integrates fastp, metaSPAdes, MEGAHIT, minibwa, samtools, COMEBin, SemiBin2, MetaCAT, Binette, RefineM, GTDB-Tk, Pyrodigal, CheckM, CheckM2, and CoverM.
 
 ## Workflow Overview
 
@@ -20,7 +20,7 @@ The workflow integrates fastp, metaSPAdes, minibwa, samtools, COMEBin, SemiBin2,
             ├───────────────────────────────────────┐
             │                                       │
             ▼                                       │
-  metaSPAdes (assembly)                             │
+  metaSPAdes/MEGAHIT (assembly)                     │
             │                                       │
             ▼                                       │
      scaffolds.fasta                                │
@@ -96,6 +96,7 @@ The control environment uses Snakemake 9 and the Slurm executor plugin. Tool-spe
 | --- | --- |
 | fastp | `workflow/envs/fastp.yaml` |
 | spades | `workflow/envs/spades.yaml` |
+| megahit | `workflow/envs/megahit.yaml` |
 | minibwa | `workflow/envs/minibwa.yaml` |
 | comebin | `workflow/envs/comebin.yaml` |
 | semibin2 | `workflow/envs/semibin2.yaml` |
@@ -301,7 +302,7 @@ If `slurm_account` is empty, the executor plugin infers the account from Slurm a
 
 The plugin does not sanitize inherited `SBATCH_*` or `SLURM_*` variables; start Snakemake from a clean environment if your site presets such variables.
 
-`assembly.memory_gb` is used only as the **metaSPAdes application memory limit** through `metaspades.py -m`. It is not a Slurm memory request. The default value of 1500 GB is inherited from the original script. Adjust it to the actual memory of nodes in the assembly partition and set an appropriate job concurrency limit.
+`assembly.memory_gb` sets only the metaSPAdes application memory limit (`metaspades.py -m`), and `assembly.megahit_memory_gb` only the MEGAHIT one (`megahit -m`); neither is a Slurm memory request. Size them to the memory available on assembly nodes.
 
 minibwa may create two additional I/O threads. The mapping worker count is therefore calculated as `max(1, threads - 2)`. BAM sorting and indexing run separately, and `samtools -@` receives `threads - 1`.
 
@@ -368,9 +369,14 @@ Quality-control parameters are configured under `qc`. See the [fastp documentati
 
 ### Assembly
 
-Each sample is assembled independently with **metaSPAdes** in `--only-assembler` mode. The default k-mer sizes are 21, 33, 55, 77, 99, and 127; `assembly.kmers` and `assembly.memory_gb` set the k-mer list and the metaSPAdes memory limit (`-m`). The assembly is written to `02_assembly/<sample>/scaffolds.fasta`.
+Assembler selection is controlled by `assembly.tool`:
 
-See the [SPAdes documentation](https://github.com/ablab/spades).
+- `spades` (default): metaSPAdes in `--only-assembler` mode; `assembly.kmers` sets the k-mer list and `assembly.memory_gb` the memory limit (`-m`).
+- `megahit`: MEGAHIT with `--min-contig-len` from `assembly.min_contig_len` (default 1000) and the memory limit `assembly.megahit_memory_gb` (default 0.9). Values below 1 are fractions of total memory passed to `-m` unchanged; values of 1 or more are GB converted to bytes. `assembly.megahit_preset` optionally selects `meta-sensitive` or `meta-large` for `--presets`; empty omits the parameter. All other MEGAHIT parameters keep their defaults.
+
+Both assemblers write `02_assembly/<sample>/scaffolds.fasta`; MEGAHIT intermediate files are removed after assembly.
+
+See the [SPAdes](https://github.com/ablab/spades) and [MEGAHIT](https://github.com/voutcn/megahit) documentation.
 
 ### Mapping
 
@@ -463,7 +469,7 @@ See the [CoverM documentation](https://github.com/wwood/CoverM).
 | Path | Contents |
 | --- | --- |
 | `01_qc/<sample>/` | fastp-filtered reads and HTML/JSON reports |
-| `02_assembly/<sample>/scaffolds.fasta` | metaSPAdes assembly |
+| `02_assembly/<sample>/scaffolds.fasta` | metaSPAdes or MEGAHIT assembly |
 | `03_mapping/<sample>/` | minibwa index and sorted BAM/BAI files |
 | `04_binning/<sample>/<binner>/` | Raw outputs from the three binners and normalized `.fa` bins |
 | `05_refinement/<sample>/` | Binette `final_bins/` and pre-filtering quality table |

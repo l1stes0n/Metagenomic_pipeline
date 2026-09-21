@@ -7,6 +7,7 @@ from pathlib import Path
 TOOL_EXECUTABLES = {
     "fastp": ("fastp",),
     "spades": ("metaspades.py",),
+    "megahit": ("megahit",),
     "minibwa": ("minibwa", "samtools"),
     "comebin": ("run_comebin.sh",),
     "semibin2": ("SemiBin2",),
@@ -20,6 +21,18 @@ TOOL_EXECUTABLES = {
     "checkm2": ("checkm2",),
 }
 
+ASSEMBLY_TOOLS = ("spades", "megahit")
+
+
+def active_tool_executables(assembly_tool):
+    if assembly_tool not in ASSEMBLY_TOOLS:
+        raise ValueError(f"assembly.tool must be one of {ASSEMBLY_TOOLS}; got {assembly_tool!r}")
+    return {
+        tool: executables
+        for tool, executables in TOOL_EXECUTABLES.items()
+        if tool not in ASSEMBLY_TOOLS or tool == assembly_tool
+    }
+
 
 def configure_conda(software, environ=None):
     """Allow GPU environment resolution on login nodes; never alter drivers."""
@@ -31,11 +44,14 @@ def configure_conda(software, environ=None):
         environ.setdefault("CONDA_OVERRIDE_CUDA", version)
 
 
-def resolve_environments(specifications, workflow_root):
+def resolve_environments(specifications, workflow_root, assembly_tool):
     """YAML -> deploy; name/prefix -> activate only, with no install hooks."""
     if not isinstance(specifications, dict):
         raise ValueError("environments must map each tool to an environment YAML, name or path")
-    missing = set(TOOL_EXECUTABLES) - set(specifications)
+    if assembly_tool not in ASSEMBLY_TOOLS:
+        raise ValueError(f"assembly.tool must be one of {ASSEMBLY_TOOLS}; got {assembly_tool!r}")
+    required = (set(TOOL_EXECUTABLES) - set(ASSEMBLY_TOOLS)) | {assembly_tool}
+    missing = required - set(specifications)
     unknown = set(specifications) - set(TOOL_EXECUTABLES)
     if missing or unknown:
         raise ValueError(f"Invalid environments keys: missing={sorted(missing)}, unknown={sorted(unknown)}")

@@ -19,6 +19,7 @@ software:
 environments:
   fastp: workflow/envs/fastp.yaml
   spades: workflow/envs/spades.yaml
+  megahit: workflow/envs/megahit.yaml
   binette: workflow/envs/binette.yaml
   refinem: workflow/envs/refinem.yaml
   minibwa: workflow/envs/minibwa.yaml
@@ -65,8 +66,12 @@ qc:
   length_required: 50
 
 assembly:
+  tool: spades
   memory_gb: 1500
   kmers: "21,33,55,77,99,127"
+  min_contig_len: 1000
+  megahit_preset: ""
+  megahit_memory_gb: 0.9
 
 refinement:
   # CheckM2 threshold

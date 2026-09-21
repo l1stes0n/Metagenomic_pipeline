@@ -18,6 +18,14 @@ def positive_int(value, name, allow_zero=False):
     return value
 
 
+def megahit_memory(value):
+    return value if value < 1 else int(value * 1024 ** 3)
+
+
+def megahit_preset_option(preset):
+    return "--presets " + preset if preset else ""
+
+
 def load_samples(filename):
     path = Path(os.path.expandvars(os.path.expanduser(filename))).resolve()
     samples = {}
@@ -69,7 +77,17 @@ def validate_config(config):
     for step in ("gtdbtk", "genes", "checkm", "checkm2"):
         if not isinstance(config["analysis"][step], bool):
             raise ValueError(f"analysis.{step} must be true or false")
-    positive_int(config["assembly"]["memory_gb"], "assembly.memory_gb")
+    assembly = config["assembly"]
+    if assembly.get("tool", "spades") not in ("spades", "megahit"):
+        raise ValueError("assembly.tool must be spades or megahit")
+    positive_int(assembly["memory_gb"], "assembly.memory_gb")
+    positive_int(assembly.get("min_contig_len", 1000), "assembly.min_contig_len")
+    preset = assembly.get("megahit_preset", "")
+    if preset not in ("", "meta-sensitive", "meta-large"):
+        raise ValueError("assembly.megahit_preset must be empty, meta-sensitive or meta-large")
+    memory = assembly.get("megahit_memory_gb", 0.9)
+    if isinstance(memory, bool) or not isinstance(memory, (int, float)) or memory <= 0:
+        raise ValueError("assembly.megahit_memory_gb must be a positive number")
     positive_int(config["gtdbtk"]["pplacer_threads"], "gtdbtk.pplacer_threads")
     positive_int(config["qc"]["length_required"], "qc.length_required")
     positive_int(config["qc"]["qualified_quality_phred"], "qc.qualified_quality_phred")
