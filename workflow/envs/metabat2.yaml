@@ -1,0 +1,3 @@
+channels: [conda-forge, bioconda, nodefaults]
+dependencies:
+  - metabat2=2.18_23_gc869c52

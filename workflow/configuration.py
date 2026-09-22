@@ -6,10 +6,12 @@ from pathlib import Path
 
 STEPS = (
     "environment_ready", "prepare_database", "read_qc", "assembly", "index", "mapping", "sort_bam", "comebin", "semibin2",
-    "metacat", "refinement", "refinem_stats", "refinem_outliers", "refinem_filter",
+    "metacat", "refinement", "binning_depth", "metabat2", "maxbin2", "refinem_stats", "refinem_outliers", "refinem_filter",
     "prepare_mags", "gtdbtk", "genes", "coverm_contig",
     "coverm_genome", "checkm", "checkm2", "drep", "drep_cross",
 )
+
+BINNER_TOOLS = ("comebin", "semibin2", "metacat", "metabat2", "maxbin2")
 
 
 def positive_int(value, name, allow_zero=False):
@@ -103,6 +105,18 @@ def validate_config(config):
     min_length = drep.get("min_length", 50000)
     if isinstance(min_length, bool) or not isinstance(min_length, (int, float)) or min_length <= 0:
         raise ValueError("drep.min_length must be a positive number")
+    binning = config.get("binning")
+    if not isinstance(binning, dict):
+        raise ValueError("binning configuration is required")
+    tools = binning.get("tools", [])
+    if not isinstance(tools, list) or not tools:
+        raise ValueError("binning.tools must be a nonempty list")
+    if any(not isinstance(tool, str) or tool not in BINNER_TOOLS for tool in tools):
+        raise ValueError(f"binning.tools must only contain {BINNER_TOOLS}")
+    if len(set(tools)) != len(tools):
+        raise ValueError("binning.tools must not contain duplicates")
+    positive_int(binning.get("metabat2_min_contig_len", 1500), "binning.metabat2_min_contig_len")
+    positive_int(binning.get("maxbin2_min_contig_length", 1000), "binning.maxbin2_min_contig_length")
     positive_int(config["gtdbtk"]["pplacer_threads"], "gtdbtk.pplacer_threads")
     positive_int(config["qc"]["length_required"], "qc.length_required")
     positive_int(config["qc"]["qualified_quality_phred"], "qc.qualified_quality_phred")

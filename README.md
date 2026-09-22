@@ -4,7 +4,7 @@
 
 A Snakemake workflow for paired-end metagenomic data, providing per-sample assembly, parallel binning, MAG refinement, taxonomy, gene prediction, quality assessment, and abundance estimation. It supports multiple samples, resumable execution, and automated software and database deployment.
 
-The workflow integrates fastp, metaSPAdes, MEGAHIT, minibwa, samtools, COMEBin, SemiBin2, MetaCAT, Binette, RefineM, dRep, GTDB-Tk, Pyrodigal, CheckM, CheckM2, and CoverM.
+The workflow integrates fastp, metaSPAdes, MEGAHIT, minibwa, samtools, COMEBin, SemiBin2, MetaCAT, MetaBAT2, MaxBin2, Binette, RefineM, dRep, GTDB-Tk, Pyrodigal, CheckM, CheckM2, and CoverM.
 
 ## Workflow Overview
 
@@ -34,11 +34,11 @@ The workflow integrates fastp, metaSPAdes, MEGAHIT, minibwa, samtools, COMEBin, 
                       samtools sort / index
                           assembly.bam
                                 │
-        ┌───────────────┬───────┴───────┬───────────────┬─────────┐
-        │               │               │               │         │
-     COMEBin        SemiBin2         MetaCAT      CoverM contig   │
-        │               │               │          (from BAM)     │
-        └───────────────┴───────┬───────┘                         │
+        ┌───────────────────────┴───────────────────────┬─────────┐
+        │                                               │         │
+   selected binners (binning.tools)              CoverM contig    │
+        │                                          (from BAM)     │
+        └───────────────────────┬                                 │
                                 ▼                                 │
                  Binette + CheckM2 (refinement)                   │
                                 │                                 │
@@ -60,7 +60,7 @@ The workflow integrates fastp, metaSPAdes, MEGAHIT, minibwa, samtools, COMEBin, 
       ┌────────────┬────────────┼────────────┬───────────────┐
       │            │            │            │               │
    GTDB-Tk     Pyrodigal     CheckM       CheckM2      CoverM genome
-  taxonomy       genes         QC           QC          (abundance)
+  taxonomy       genes         QA           QA           abundance
       │            │            │            │               │
       └────────────┴────────────┼────────────┴───────────────┘
                                 ▼
@@ -107,6 +107,8 @@ The control environment uses Snakemake 9 and the Slurm executor plugin. Tool-spe
 | comebin | `workflow/envs/comebin.yaml` |
 | semibin2 | `workflow/envs/semibin2.yaml` |
 | metacat | `workflow/envs/metacat.yaml` |
+| metabat2 | `workflow/envs/metabat2.yaml` |
+| maxbin2 | `workflow/envs/maxbin2.yaml` |
 | binette | `workflow/envs/binette.yaml` |
 | refinem | `workflow/envs/refinem.yaml` |
 | gtdbtk | `workflow/envs/gtdbtk.yaml` |
@@ -393,15 +395,19 @@ See the [minibwa documentation](https://github.com/lh3/minibwa).
 
 ### Binning
 
-Three binners run in parallel on every sample; each job validates GPU availability before starting:
+The binners listed in `binning.tools` run in parallel on every sample (default: COMEBin, SemiBin2, MetaCAT, MetaBAT2, and MaxBin2); GPU binners validate GPU availability before starting:
 
 - **COMEBin** applies contrastive multi-view representation learning to the assembly and BAM, and additionally requires the CheckM database.
 - **SemiBin2** runs `single_easy_bin` with the global environment model.
 - **MetaCAT** performs coverage calculation, seeding, and clustering in sequence.
+- **MetaBAT2** bins with `metabat2` using a shared per-contig depth file.
+- **MaxBin2** runs `run_MaxBin.pl` with the same depth converted to its abundance format.
 
-Each tool's output is normalized to FASTA (`.fa`) with unchanged contig IDs under `04_binning/<sample>/{comebin,semibin2,metacat}/`.
+`binning.metabat2_min_contig_len` (default 1500) and `binning.maxbin2_min_contig_length` (default 1000) set the minimum contig lengths; all other parameters keep tool defaults. The depth step runs only when MetaBAT2 or MaxBin2 is selected, and only the selected binner environments are prepared.
 
-See the [COMEBin](https://github.com/ziyewang/COMEBin), [SemiBin2](https://github.com/BigDataBiology/SemiBin), and [MetaCAT](https://github.com/liu-congcong/MetaCAT) repositories.
+Each tool's output is normalized to FASTA (`.fa`) with unchanged contig IDs under `04_binning/<sample>/{comebin,semibin2,metacat,metabat2,maxbin2}/`.
+
+See the [COMEBin](https://github.com/ziyewang/COMEBin), [SemiBin2](https://github.com/BigDataBiology/SemiBin), [MetaCAT](https://github.com/liu-congcong/MetaCAT), [MetaBAT2](https://bitbucket.org/berkeleylab/metabat), and [MaxBin2](https://sourceforge.net/projects/maxbin2/) repositories.
 
 ### Bin Refinement
 
@@ -489,7 +495,8 @@ See the [CoverM documentation](https://github.com/wwood/CoverM).
 | `01_qc/<sample>/` | fastp-filtered reads and HTML/JSON reports |
 | `02_assembly/<sample>/scaffolds.fasta` | metaSPAdes or MEGAHIT assembly |
 | `03_mapping/<sample>/` | minibwa index and sorted BAM/BAI files |
-| `04_binning/<sample>/<binner>/` | Raw outputs from the three binners and normalized `.fa` bins |
+| `04_binning/<sample>/<binner>/` | Raw outputs from the selected binners and normalized `.fa` bins |
+| `04_binning/depth/` | Shared per-contig depth and MaxBin2 abundance files (when a coverage-based binner is selected) |
 | `05_refinement/<sample>/` | Binette `final_bins/` and pre-filtering quality table |
 | `05_refinem/<sample>/` | Scaffold statistics, outlier tables, filtered bins, and retention records |
 | `06_mags/<sample>/*.fna` | Normalized per-sample MAGs; pre-dereplication input when `drep.sample` is enabled |

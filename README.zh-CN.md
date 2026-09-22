@@ -4,7 +4,7 @@
 
 一个面向双端宏基因组数据的 Snakemake 工作流，支持逐样本组装、并行分箱、MAG 精炼、分类注释、基因预测、质量评估和丰度计算，并提供多样本处理、断点续跑以及软件和数据库的自动部署。
 
-本工作流主要使用 fastp、metaSPAdes、MEGAHIT、minibwa、samtools、COMEBin、SemiBin2、MetaCAT、Binette、RefineM、dRep、GTDB-Tk、Pyrodigal、CheckM、CheckM2 和 CoverM。
+本工作流主要使用 fastp、metaSPAdes、MEGAHIT、minibwa、samtools、COMEBin、SemiBin2、MetaCAT、MetaBAT2、MaxBin2、Binette、RefineM、dRep、GTDB-Tk、Pyrodigal、CheckM、CheckM2 和 CoverM。
 
 ## 工作流概览
 
@@ -34,11 +34,11 @@
                       samtools sort / index
                           assembly.bam
                                 │
-        ┌───────────────┬───────┴───────┬───────────────┬─────────┐
-        │               │               │               │         │
-     COMEBin        SemiBin2         MetaCAT      CoverM contig   │
-        │               │               │          (from BAM)     │
-        └───────────────┴───────┬───────┘                         │
+        ┌───────────────────────┴───────────────────────┬─────────┐
+        │                                               │         │
+   selected binners (binning.tools)              CoverM contig    │
+        │                                          (from BAM)     │
+        └───────────────────────┬                                 │
                                 ▼                                 │
                  Binette + CheckM2 (refinement)                   │
                                 │                                 │
@@ -60,7 +60,7 @@
       ┌────────────┬────────────┼────────────┬───────────────┐
       │            │            │            │               │
    GTDB-Tk     Pyrodigal     CheckM       CheckM2      CoverM genome
-  taxonomy       genes         QC           QC          (abundance)
+  taxonomy       genes         QA           QA           abundance
       │            │            │            │               │
       └────────────┴────────────┼────────────┴───────────────┘
                                 ▼
@@ -107,6 +107,8 @@ conda activate metagenomic-workflow
 | comebin | `workflow/envs/comebin.yaml` |
 | semibin2 | `workflow/envs/semibin2.yaml` |
 | metacat | `workflow/envs/metacat.yaml` |
+| metabat2 | `workflow/envs/metabat2.yaml` |
+| maxbin2 | `workflow/envs/maxbin2.yaml` |
 | binette | `workflow/envs/binette.yaml` |
 | refinem | `workflow/envs/refinem.yaml` |
 | gtdbtk | `workflow/envs/gtdbtk.yaml` |
@@ -393,15 +395,19 @@ minibwa 对组装结果建立索引，质控后的 reads 回贴到组装序列�
 
 ### 分箱
 
-三种分箱工具在每个样本上并行运行，每个任务开始前都会校验 GPU：
+`binning.tools` 中选择的分箱工具在每个样本上并行运行（默认：COMEBin、SemiBin2、MetaCAT、MetaBAT2 和 MaxBin2）；GPU 分箱工具在任务开始前会校验 GPU：
 
 - **COMEBin**：对组装序列和 BAM 进行对比式多视图表示学习，并且需要 CheckM 数据库。
 - **SemiBin2**：使用全局环境模型运行 `single_easy_bin`。
 - **MetaCAT**：依次执行 coverage 计算、seed 和 cluster。
+- **MetaBAT2**：使用共享的 per-contig 深度文件运行 `metabat2`。
+- **MaxBin2**：将同一深度转换为丰度格式后运行 `run_MaxBin.pl`。
 
-各工具的输出会在 `04_binning/<sample>/{comebin,semibin2,metacat}/` 下统一为 FASTA（`.fa`），contig ID 保持不变。
+`binning.metabat2_min_contig_len`（默认 1500）和 `binning.maxbin2_min_contig_length`（默认 1000）设置最小 contig 长度，其余参数保持工具默认。仅当选中 MetaBAT2 或 MaxBin2 时才执行深度计算，并且只准备所选分箱器的环境。
 
-参见 [COMEBin](https://github.com/ziyewang/COMEBin)、[SemiBin2](https://github.com/BigDataBiology/SemiBin) 和 [MetaCAT](https://github.com/liu-congcong/MetaCAT) 仓库。
+各工具的输出会在 `04_binning/<sample>/{comebin,semibin2,metacat,metabat2,maxbin2}/` 下统一为 FASTA（`.fa`），contig ID 保持不变。
+
+参见 [COMEBin](https://github.com/ziyewang/COMEBin)、[SemiBin2](https://github.com/BigDataBiology/SemiBin)、[MetaCAT](https://github.com/liu-congcong/MetaCAT)、[MetaBAT2](https://bitbucket.org/berkeleylab/metabat) 和 [MaxBin2](https://sourceforge.net/projects/maxbin2/) 仓库。
 
 ### Bin 精炼
 
@@ -489,7 +495,8 @@ CoverM 基于组装 BAM 以两种模式计算丰度：`coverm contig`，以及�
 | `01_qc/<sample>/` | fastp 过滤后的 reads 以及 HTML/JSON 报告 |
 | `02_assembly/<sample>/scaffolds.fasta` | metaSPAdes 或 MEGAHIT 组装结果 |
 | `03_mapping/<sample>/` | minibwa 索引以及排序后的 BAM/BAI 文件 |
-| `04_binning/<sample>/<binner>/` | 三种分箱工具的原始结果和统一格式的 `.fa` bins |
+| `04_binning/<sample>/<binner>/` | 所选分箱工具的原始结果和统一格式的 `.fa` bins |
+| `04_binning/depth/` | 共享的 per-contig 深度文件与 MaxBin2 丰度文件（选中基于深度的分箱工具时） |
 | `05_refinement/<sample>/` | Binette `final_bins/` 和过滤前质量表 |
 | `05_refinem/<sample>/` | scaffold 统计、离群表、过滤后的 bins 和保留记录 |
 | `06_mags/<sample>/*.fna` | 归一化后的每样本 MAGs；启用 `drep.sample` 时为去冗余前的输入 |

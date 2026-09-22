@@ -26,6 +26,8 @@ environments:
   comebin: workflow/envs/comebin.yaml
   semibin2: workflow/envs/semibin2.yaml
   metacat: workflow/envs/metacat.yaml
+  metabat2: workflow/envs/metabat2.yaml
+  maxbin2: workflow/envs/maxbin2.yaml
   gtdbtk: workflow/envs/gtdbtk.yaml
   pyrodigal: workflow/envs/pyrodigal.yaml
   coverm: workflow/envs/coverm.yaml
@@ -43,7 +45,10 @@ resources:
   sort_bam:     {threads: 32,  partition: cpu,      runtime: 4320}
   comebin:      {threads: 16,  partition: gpu,      runtime: 4320, gpus: 1}
   semibin2:     {threads: 16,  partition: gpu,      runtime: 4320, gpus: 1}
-  metacat:      {threads: 16,  partition: gpu,      runtime: 4320, gpus: 1}
+  metacat:      {threads: 16, partition: gpu,      runtime: 4320, gpus: 1}
+  binning_depth: {threads: 4, partition: cpu,      runtime: 4320}
+  metabat2:     {threads: 16, partition: cpu,      runtime: 4320}
+  maxbin2:      {threads: 16, partition: cpu,      runtime: 4320}
   refinement:   {threads: 32, partition: cpu,      runtime: 4320}
   refinem_stats: {threads: 16,  partition: cpu,      runtime: 4320}
   refinem_outliers: {threads: 1, partition: light,  runtime: 4320}
@@ -94,6 +99,11 @@ refinem:
   report_type: any
   min_alignment_fraction: 0.98
   max_edit_distance_fraction: 0.02
+
+binning:
+  tools: [comebin, semibin2, metacat, metabat2, maxbin2]
+  metabat2_min_contig_len: 1500
+  maxbin2_min_contig_length: 1000
 
 drep:
   sample: false

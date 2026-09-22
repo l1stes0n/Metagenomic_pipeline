@@ -23,8 +23,9 @@ ASSEMBLY_TOOL = config["assembly"].get("tool", "spades")
 DREP_SAMPLE = config.get("drep", {}).get("sample", False)
 DREP_CROSS = config.get("drep", {}).get("cross_sample", False)
 DREP_ENABLED = DREP_SAMPLE or DREP_CROSS
-ENVS = resolve_environments(config["environments"], WORKFLOW_ROOT, ASSEMBLY_TOOL, DREP_ENABLED)
-ACTIVE_TOOLS = active_tool_executables(ASSEMBLY_TOOL, DREP_ENABLED)
+BINNERS = config["binning"]["tools"]
+ENVS = resolve_environments(config["environments"], WORKFLOW_ROOT, ASSEMBLY_TOOL, DREP_ENABLED, BINNERS)
+ACTIVE_TOOLS = active_tool_executables(ASSEMBLY_TOOL, DREP_ENABLED, BINNERS)
 PYTHON = sys.executable
 BIN_UTILS = str(WORKFLOW_ROOT / "workflow/scripts/bin_utils.py")
 

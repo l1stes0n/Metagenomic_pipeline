@@ -3,6 +3,8 @@ import os
 import re
 from pathlib import Path
 
+from configuration import BINNER_TOOLS
+
 
 TOOL_EXECUTABLES = {
     "fastp": ("fastp",),
@@ -12,6 +14,8 @@ TOOL_EXECUTABLES = {
     "comebin": ("run_comebin.sh",),
     "semibin2": ("SemiBin2",),
     "metacat": ("MetaCAT",),
+    "metabat2": ("metabat2", "jgi_summarize_bam_contig_depths"),
+    "maxbin2": ("run_MaxBin.pl",),
     "binette": ("binette", "checkm2"),
     "refinem": ("refinem",),
     "gtdbtk": ("gtdbtk",),
@@ -26,7 +30,7 @@ ASSEMBLY_TOOLS = ("spades", "megahit")
 OPTIONAL_TOOLS = ("drep",)
 
 
-def active_tool_executables(assembly_tool, drep_enabled=False):
+def active_tool_executables(assembly_tool, drep_enabled=False, binners=None):
     if assembly_tool not in ASSEMBLY_TOOLS:
         raise ValueError(f"assembly.tool must be one of {ASSEMBLY_TOOLS}; got {assembly_tool!r}")
     active = {
@@ -36,6 +40,12 @@ def active_tool_executables(assembly_tool, drep_enabled=False):
     }
     if not drep_enabled:
         active.pop("drep", None)
+    selected = set(BINNER_TOOLS) if binners is None else set(binners)
+    if "maxbin2" in selected:
+        selected.add("metabat2")
+    for tool in BINNER_TOOLS:
+        if tool not in selected:
+            active.pop(tool, None)
     return active
 
 
@@ -49,13 +59,17 @@ def configure_conda(software, environ=None):
         environ.setdefault("CONDA_OVERRIDE_CUDA", version)
 
 
-def resolve_environments(specifications, workflow_root, assembly_tool, drep_enabled=False):
+def resolve_environments(specifications, workflow_root, assembly_tool, drep_enabled=False, binners=None):
     """YAML -> deploy; name/prefix -> activate only, with no install hooks."""
     if not isinstance(specifications, dict):
         raise ValueError("environments must map each tool to an environment YAML, name or path")
     if assembly_tool not in ASSEMBLY_TOOLS:
         raise ValueError(f"assembly.tool must be one of {ASSEMBLY_TOOLS}; got {assembly_tool!r}")
-    required = (set(TOOL_EXECUTABLES) - set(ASSEMBLY_TOOLS) - set(OPTIONAL_TOOLS)) | {assembly_tool}
+    selected = set(BINNER_TOOLS) if binners is None else set(binners)
+    if "maxbin2" in selected:
+        selected.add("metabat2")
+    base = set(TOOL_EXECUTABLES) - set(ASSEMBLY_TOOLS) - set(OPTIONAL_TOOLS) - set(BINNER_TOOLS)
+    required = base | {assembly_tool} | selected
     if drep_enabled:
         required.add("drep")
     missing = required - set(specifications)
