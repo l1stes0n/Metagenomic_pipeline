@@ -22,7 +22,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 
-NAMES = {"gtdbtk", "checkm", "checkm2"}
+NAMES = {"gtdbtk", "checkm", "checkm2", "bakta"}
 MANIFEST = ".database_manifest.json"
 CHUNK = 8 * 1024 * 1024
 
@@ -89,7 +89,7 @@ def safe_extract(archive, destination):
             tar.extract(member, path=destination, filter="data")
 
 
-def required_structure(name, root, version=None):
+def required_structure(name, root, version=None, db_type=None):
     root = Path(root)
     if name not in NAMES or not root.is_dir():
         raise ValueError(f"Missing/unsupported database directory: {name}: {root}")
@@ -99,6 +99,16 @@ def required_structure(name, root, version=None):
     elif name == "checkm":
         directories = ["hmms", "pfam", "img", "genome_tree", "distributions"]
         files = ["hmms/phylo.hmm", "hmms/checkm.hmm", "pfam/Pfam-A.hmm.dat", "img/img_metadata.tsv", "selected_marker_sets.tsv", "taxon_marker_sets.tsv"]
+    elif name == "bakta":
+        directories = ["amrfinderplus-db"]
+        files = [
+            "version.json", "antifam.h3f", "antifam.h3i", "antifam.h3m", "antifam.h3p",
+            "bakta.db", "expert-protein-sequences.dmnd", "ncRNA-genes.i1f", "ncRNA-genes.i1i",
+            "ncRNA-genes.i1m", "ncRNA-genes.i1p", "ncRNA-regions.i1f", "ncRNA-regions.i1i",
+            "ncRNA-regions.i1m", "ncRNA-regions.i1p", "oric.fna", "orit.fna", "pfam.h3f",
+            "pfam.h3i", "pfam.h3m", "pfam.h3p", "rfam-go.tsv", "rRNA.i1f", "rRNA.i1i",
+            "rRNA.i1m", "rRNA.i1p", "sorf.dmnd",
+        ]
     else:
         directories, files = [], ["uniref100.KO.1.dmnd"]
     for relative in directories:
@@ -114,6 +124,12 @@ def required_structure(name, root, version=None):
         match = re.search(r"^VERSION_DATA\s*=\s*([^\s]+)", metadata, re.MULTILINE)
         if not match or match[1].strip("\"'").lower() != str(version).lower():
             raise ValueError(f"GTDB metadata does not match requested release {version}")
+    if name == "bakta":
+        info = json.loads((root / "version.json").read_text())
+        if version and f"{info.get('major')}.{info.get('minor')}" != str(version):
+            raise ValueError(f"Bakta database version does not match requested {version}")
+        if db_type and info.get("type") != db_type:
+            raise ValueError(f"Bakta database type does not match requested {db_type}")
     return {"directories": directories, "files": files}
 
 
@@ -146,10 +162,12 @@ def write_json(path, content):
     temporary.replace(path)
 
 
-def prepare(name, spec, marker):
+def prepare(name, spec, marker, validate_only=False):
     if name not in NAMES:
         raise ValueError(f"Unknown database: {name}")
     mode = spec.get("mode", "download")
+    if validate_only:
+        mode = "existing"
     if mode not in {"download", "existing"}:
         raise ValueError("Database mode must be download or existing")
     if not isinstance(spec.get("path"), str) or not spec["path"].strip():
@@ -163,7 +181,7 @@ def prepare(name, spec, marker):
               "config_fingerprint": fingerprint,
               "prepared_at": datetime.now(timezone.utc).isoformat()}
     if mode == "existing":
-        record["structure"] = required_structure(name, target, version)
+        record["structure"] = required_structure(name, target, version, spec.get("type"))
     else:
         url = spec.get("url", "")
         if not isinstance(url, str) or not url.startswith("https://"):
@@ -175,7 +193,7 @@ def prepare(name, spec, marker):
             old = json.loads(manifest.read_text())
             if old.get("config_fingerprint") != fingerprint:
                 raise ValueError(f"Database configuration changed for {target}; choose a new versioned path")
-            record["structure"] = required_structure(name, target, version)
+            record["structure"] = required_structure(name, target, version, spec.get("type"))
         else:
             target.parent.mkdir(parents=True, exist_ok=True)
             archive = target.parent / ".downloads" / f"{name}-{version}.tar.gz"
@@ -184,12 +202,12 @@ def prepare(name, spec, marker):
             with tempfile.TemporaryDirectory(prefix=f".{name}-extract-", dir=target.parent) as temporary:
                 safe_extract(archive, temporary)
                 source = locate_root(name, temporary, version)
-                record["structure"] = required_structure(name, source, version)
+                record["structure"] = required_structure(name, source, version, spec.get("type"))
                 record["url"] = url
                 write_json(source / MANIFEST, record)
                 source.rename(target)
             # Check again after relocation; relative symlinks must remain valid.
-            required_structure(name, target, version)
+            required_structure(name, target, version, spec.get("type"))
         record["url"] = url
     write_json(marker, record)
     print(f"Ready: {name}: {target}", flush=True)
@@ -201,9 +219,10 @@ def main():
     parser.add_argument("--name", choices=sorted(NAMES), required=True)
     parser.add_argument("--spec", required=True, help="JSON database configuration")
     parser.add_argument("--marker", required=True)
+    parser.add_argument("--validate-only", action="store_true")
     args = parser.parse_args()
     try:
-        prepare(args.name, json.loads(args.spec), args.marker)
+        prepare(args.name, json.loads(args.spec), args.marker, args.validate_only)
     except (OSError, ValueError, RuntimeError, tarfile.TarError) as error:
         print(f"Database preparation failed: {error}", file=sys.stderr)
         return 1

@@ -7,7 +7,7 @@ from pathlib import Path
 STEPS = (
     "environment_ready", "prepare_database", "read_qc", "assembly", "index", "mapping", "sort_bam", "comebin", "semibin2",
     "metacat", "refinement", "binning_depth", "metabat2", "maxbin2", "refinem_stats", "refinem_outliers", "refinem_filter",
-    "prepare_mags", "gtdbtk", "genes", "coverm_contig",
+    "prepare_mags", "gtdbtk", "genes", "bakta", "coverm_contig",
     "coverm_genome", "checkm", "checkm2", "drep", "drep_cross",
 )
 
@@ -76,7 +76,7 @@ def validate_config(config):
         partition = config["partitions"].get(entry["partition"], entry["partition"])
         if not isinstance(partition, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+(?:,[A-Za-z0-9_.-]+)*", partition):
             raise ValueError(f"resources.{step}.partition is invalid: {partition!r}")
-    for step in ("gtdbtk", "genes", "checkm", "checkm2"):
+    for step in ("gtdbtk", "genes", "bakta", "checkm", "checkm2"):
         if not isinstance(config["analysis"][step], bool):
             raise ValueError(f"analysis.{step} must be true or false")
     assembly = config["assembly"]
@@ -117,6 +117,9 @@ def validate_config(config):
         raise ValueError("binning.tools must not contain duplicates")
     positive_int(binning.get("metabat2_min_contig_len", 1500), "binning.metabat2_min_contig_len")
     positive_int(binning.get("maxbin2_min_contig_length", 1000), "binning.maxbin2_min_contig_length")
+    bakta = config.get("bakta", {})
+    if not isinstance(bakta.get("meta", False), bool):
+        raise ValueError("bakta.meta must be true or false")
     positive_int(config["gtdbtk"]["pplacer_threads"], "gtdbtk.pplacer_threads")
     positive_int(config["qc"]["length_required"], "qc.length_required")
     positive_int(config["qc"]["qualified_quality_phred"], "qc.qualified_quality_phred")

@@ -4,7 +4,7 @@
 
 一个面向双端宏基因组数据的 Snakemake 工作流，支持逐样本组装、并行分箱、MAG 精炼、分类注释、基因预测、质量评估和丰度计算，并提供多样本处理、断点续跑以及软件和数据库的自动部署。
 
-本工作流主要使用 fastp、metaSPAdes、MEGAHIT、minibwa、samtools、COMEBin、SemiBin2、MetaCAT、MetaBAT2、MaxBin2、Binette、RefineM、dRep、GTDB-Tk、Pyrodigal、CheckM、CheckM2 和 CoverM。
+本工作流主要使用 fastp、metaSPAdes、MEGAHIT、minibwa、samtools、COMEBin、SemiBin2、MetaCAT、MetaBAT2、MaxBin2、Binette、RefineM、dRep、GTDB-Tk、Pyrodigal、Bakta、CheckM、CheckM2 和 CoverM。
 
 ## 工作流概览
 
@@ -59,7 +59,7 @@
                                 │
       ┌────────────┬────────────┼────────────┬───────────────┐
       │            │            │            │               │
-   GTDB-Tk     Pyrodigal     CheckM       CheckM2      CoverM genome
+   GTDB-Tk   Pyrodigal/Bakta   CheckM       CheckM2      CoverM genome
   taxonomy       genes         QA           QA           abundance
       │            │            │            │               │
       └────────────┴────────────┼────────────┴───────────────┘
@@ -113,6 +113,7 @@ conda activate metagenomic-workflow
 | refinem | `workflow/envs/refinem.yaml` |
 | gtdbtk | `workflow/envs/gtdbtk.yaml` |
 | pyrodigal | `workflow/envs/pyrodigal.yaml` |
+| bakta | `workflow/envs/bakta.yaml` |
 | checkm | `workflow/envs/checkm.yaml` |
 | checkm2 | `workflow/envs/checkm2.yaml` |
 | drep | `workflow/envs/drep.yaml` |
@@ -229,6 +230,7 @@ sampleB	/data/sampleB_R1.fastq.gz	/data/sampleB_R2.fastq.gz
 | GTDB-Tk | R232 | GTDB-Tk 2.7.2 分类注释 |
 | CheckM | 2015_01_16 | COMEBin 最终筛选和独立 CheckM1 质量评估 |
 | CheckM2 | Zenodo 14897628，Version 3 | Binette 精炼和独立 CheckM2 质量评估 |
+| Bakta | Zenodo 14916843，DB v6.0（light/full） | Bakta 注释分支 |
 
 下载地址和版本集中保存在 `config/databases.yaml` 中。
 
@@ -457,6 +459,7 @@ CheckM 和 CheckM2 会对 **RefineM 过滤后**的最终 MAGs 重新评估。Bin
 
 - GTDB-Tk 分类注释
 - 基因预测
+- Bakta 注释
 - 独立 CheckM 评估
 - 独立 CheckM2 评估
 
@@ -482,6 +485,14 @@ GTDB-Tk 使用 `classify_wf --skip_ani_screen` 基于固定的 GTDB R232 版本�
 
 参见 [Pyrodigal 3.7.1 命令行文档](https://pyrodigal.readthedocs.io/en/v3.7.1/guide/cli.html)。
 
+### Bakta 注释
+
+Bakta 为可选、与分类无关的注释分支，由 `analysis.bakta` 控制（默认关闭）。每个最终 MAG 单独注释到 `13_bakta/<sample>/<mag>/`，包含 GFF3、GenBank、EMBL、FASTA、TSV、JSON 和作图输出。
+
+`bakta.meta` 启用 Bakta 的 `--meta` CDS 预测模式，适合碎片化的 MAGs（默认 false）。`databases.bakta.type` 选择 `light`（默认）或 `full` 数据库；由于该分支可选，其环境与数据库只在启用分支或请求其就绪标记时准备（例如 `--until results/00_databases/bakta.ready.json`）。Bakta 数据库建议放在快速的本地存储上，网络文件系统会显著拖慢 SQLite 查询。
+
+参见 [Bakta 文档](https://github.com/oschwengers/bakta)。
+
 ### 丰度计算
 
 CoverM 基于组装 BAM 以两种模式计算丰度：`coverm contig`，以及针对最终 MAGs 的 `coverm genome`。两者都输出 trimmed mean 覆盖度、长度、count、RPKM 和 TPM；genome 模式还会输出相对丰度，并使用 `--min-covered-fraction 0`。输出为 `09_abundance/<sample>/contig.tsv` 和 `09_abundance/<sample>/genome.tsv`。
@@ -504,6 +515,7 @@ CoverM 基于组装 BAM 以两种模式计算丰度：`coverm contig`，以及�
 | `12_drep/` | 跨样本 MAG 汇总、CheckM2 报告与 dRep 输出（启用时） |
 | `07_taxonomy/<sample>/` | GTDB-Tk 分类结果 |
 | `08_genes/<sample>/` | 每个 MAG 的蛋白 `.faa`、基因 `.ffn` 和 `.gff` 文件 |
+| `13_bakta/<sample>/<mag>/` | 每个 MAG 的 Bakta 注释（启用时） |
 | `09_abundance/<sample>/{contig,genome}.tsv` | CoverM 丰度表 |
 | `10_checkm/<sample>/quality_report.tsv` | 最终 MAGs 的 CheckM 评估结果 |
 | `11_checkm2/<sample>/quality_report.tsv` | 最终 MAGs 的 CheckM2 质量报告 |

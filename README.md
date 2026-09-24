@@ -4,7 +4,7 @@
 
 A Snakemake workflow for paired-end metagenomic data, providing per-sample assembly, parallel binning, MAG refinement, taxonomy, gene prediction, quality assessment, and abundance estimation. It supports multiple samples, resumable execution, and automated software and database deployment.
 
-The workflow integrates fastp, metaSPAdes, MEGAHIT, minibwa, samtools, COMEBin, SemiBin2, MetaCAT, MetaBAT2, MaxBin2, Binette, RefineM, dRep, GTDB-Tk, Pyrodigal, CheckM, CheckM2, and CoverM.
+The workflow integrates fastp, metaSPAdes, MEGAHIT, minibwa, samtools, COMEBin, SemiBin2, MetaCAT, MetaBAT2, MaxBin2, Binette, RefineM, dRep, GTDB-Tk, Pyrodigal, Bakta, CheckM, CheckM2, and CoverM.
 
 ## Workflow Overview
 
@@ -59,7 +59,7 @@ The workflow integrates fastp, metaSPAdes, MEGAHIT, minibwa, samtools, COMEBin, 
                                 │
       ┌────────────┬────────────┼────────────┬───────────────┐
       │            │            │            │               │
-   GTDB-Tk     Pyrodigal     CheckM       CheckM2      CoverM genome
+   GTDB-Tk   Pyrodigal/Bakta   CheckM       CheckM2      CoverM genome
   taxonomy       genes         QA           QA           abundance
       │            │            │            │               │
       └────────────┴────────────┼────────────┴───────────────┘
@@ -113,6 +113,7 @@ The control environment uses Snakemake 9 and the Slurm executor plugin. Tool-spe
 | refinem | `workflow/envs/refinem.yaml` |
 | gtdbtk | `workflow/envs/gtdbtk.yaml` |
 | pyrodigal | `workflow/envs/pyrodigal.yaml` |
+| bakta | `workflow/envs/bakta.yaml` |
 | checkm | `workflow/envs/checkm.yaml` |
 | checkm2 | `workflow/envs/checkm2.yaml` |
 | drep | `workflow/envs/drep.yaml` |
@@ -229,6 +230,7 @@ The `prepare_database` rule performs resumable downloads, safe extraction, direc
 | GTDB-Tk | R232 | GTDB-Tk 2.7.2 taxonomy assignment |
 | CheckM | 2015_01_16 | COMEBin final filtering and independent CheckM1 quality assessment |
 | CheckM2 | Zenodo 14897628, Version 3 | Binette refinement and independent CheckM2 quality assessment |
+| Bakta | Zenodo 14916843, DB v6.0 (light/full) | Bakta annotation branch |
 
 Download URLs and versions are centralized in `config/databases.yaml`.
 
@@ -457,6 +459,7 @@ The `analysis` configuration can disable the following branches:
 
 - GTDB-Tk taxonomy
 - Gene prediction
+- Bakta annotation
 - Independent CheckM assessment
 - Independent CheckM2 assessment
 
@@ -482,6 +485,14 @@ Pyrodigal is managed through `workflow/envs/pyrodigal.yaml` by default; `environ
 
 See the [Pyrodigal 3.7.1 command-line documentation](https://pyrodigal.readthedocs.io/en/v3.7.1/guide/cli.html).
 
+### Bakta Annotation
+
+Bakta is an optional, taxonomy-independent annotation branch controlled by `analysis.bakta` (disabled by default). Each final MAG is annotated separately into `13_bakta/<sample>/<mag>/` with GFF3, GenBank, EMBL, FASTA, TSV, JSON, and plot outputs.
+
+`bakta.meta` enables Bakta's `--meta` CDS prediction mode for fragmented MAGs (default false). `databases.bakta.type` selects the `light` (default) or `full` database; because the branch is optional, its environment and database are prepared only when the branch or its readiness marker is requested (for example `--until results/00_databases/bakta.ready.json`). Keep the Bakta database on fast local storage when possible; SQLite lookups over network filesystems slow annotation down.
+
+See the [Bakta documentation](https://github.com/oschwengers/bakta).
+
 ### Abundance
 
 CoverM calculates abundance from the assembly BAM in two modes: `coverm contig`, and `coverm genome` against the final MAGs. Both report trimmed-mean coverage, length, count, RPKM, and TPM; genome mode additionally reports relative abundance and uses `--min-covered-fraction 0`. Outputs are `09_abundance/<sample>/contig.tsv` and `09_abundance/<sample>/genome.tsv`.
@@ -504,6 +515,7 @@ See the [CoverM documentation](https://github.com/wwood/CoverM).
 | `12_drep/` | Cross-sample MAG pool, CheckM2 report, and dRep output (when enabled) |
 | `07_taxonomy/<sample>/` | GTDB-Tk taxonomy results |
 | `08_genes/<sample>/` | Per-MAG protein `.faa`, gene `.ffn`, and `.gff` files |
+| `13_bakta/<sample>/<mag>/` | Bakta annotation per MAG (when enabled) |
 | `09_abundance/<sample>/{contig,genome}.tsv` | CoverM abundance tables |
 | `10_checkm/<sample>/quality_report.tsv` | CheckM assessment of final MAGs |
 | `11_checkm2/<sample>/quality_report.tsv` | CheckM2 quality report for final MAGs |

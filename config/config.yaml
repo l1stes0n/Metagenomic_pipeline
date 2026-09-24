@@ -30,6 +30,7 @@ environments:
   maxbin2: workflow/envs/maxbin2.yaml
   gtdbtk: workflow/envs/gtdbtk.yaml
   pyrodigal: workflow/envs/pyrodigal.yaml
+  bakta: workflow/envs/bakta.yaml
   coverm: workflow/envs/coverm.yaml
   checkm: workflow/envs/checkm.yaml
   checkm2: workflow/envs/checkm2.yaml
@@ -56,6 +57,7 @@ resources:
   prepare_mags: {threads: 1,  partition: light,    runtime: 4320}
   gtdbtk:       {threads: 32, partition: cpu,      runtime: 4320}
   genes:        {threads: 8,  partition: light,    runtime: 4320}
+  bakta:        {threads: 16, partition: cpu,      runtime: 4320}
   coverm_contig: {threads: 8, partition: light,    runtime: 4320}
   coverm_genome: {threads: 8, partition: light,    runtime: 4320}
   checkm:       {threads: 32, partition: light,    runtime: 4320}
@@ -66,6 +68,7 @@ resources:
 analysis:
   gtdbtk: true
   genes: true
+  bakta: false
   checkm: true
   checkm2: true
 
@@ -116,3 +119,6 @@ drep:
 
 gtdbtk:
   pplacer_threads: 16
+
+bakta:
+  meta: false

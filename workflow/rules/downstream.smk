@@ -161,3 +161,38 @@ rule checkm2:
             require_nonempty {output.qc:q}/quality_report.tsv
         }} > {log:q} 2>&1
         """
+
+
+rule bakta:
+    input:
+        mags=MAGS_SOURCE,
+        database=database_ready("bakta")
+    output:
+        annotation=directory(ROOT + "/13_bakta/{sample}")
+    threads: setting("bakta", "threads")
+    resources:
+        slurm_partition=setting("bakta", "partition"),
+        runtime=setting("bakta", "runtime"),
+        slurm_account=config["slurm_account"]
+    params:
+        database_path=database_dir("bakta"),
+        meta="--meta" if config.get("bakta", {}).get("meta", False) else ""
+    conda: ENVS["bakta"]
+    log: "logs/bakta/{sample}.log"
+    shell:
+        r"""
+        limit_threads {threads}
+        {{
+            mkdir -p {output.annotation:q}
+            shopt -s nullglob
+            genomes=({input.mags:q}/*.fna)
+            (( ${{#genomes[@]}} > 0 )) || {{ echo "No MAGs for Bakta annotation" >&2; exit 1; }}
+            for genome in "${{genomes[@]}}"; do
+                name=$(basename "$genome" .fna)
+                bakta --db {params.database_path:q} --output {output.annotation:q}/"$name" \
+                    --prefix "$name" --threads {threads} {params.meta} "$genome"
+                require_nonempty {output.annotation:q}/"$name"/"$name".gff3 \
+                    {output.annotation:q}/"$name"/"$name".faa
+            done
+        }} > {log:q} 2>&1
+        """

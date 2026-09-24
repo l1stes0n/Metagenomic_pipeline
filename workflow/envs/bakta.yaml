@@ -1,0 +1,3 @@
+channels: [conda-forge, bioconda, nodefaults]
+dependencies:
+  - bakta=1.12.1

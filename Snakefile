@@ -24,8 +24,10 @@ DREP_SAMPLE = config.get("drep", {}).get("sample", False)
 DREP_CROSS = config.get("drep", {}).get("cross_sample", False)
 DREP_ENABLED = DREP_SAMPLE or DREP_CROSS
 BINNERS = config["binning"]["tools"]
-ENVS = resolve_environments(config["environments"], WORKFLOW_ROOT, ASSEMBLY_TOOL, DREP_ENABLED, BINNERS)
-ACTIVE_TOOLS = active_tool_executables(ASSEMBLY_TOOL, DREP_ENABLED, BINNERS)
+BAKTA_ENABLED = config["analysis"]["bakta"]
+ENVS = resolve_environments(config["environments"], WORKFLOW_ROOT, ASSEMBLY_TOOL, DREP_ENABLED, BINNERS,
+                            BAKTA_ENABLED)
+ACTIVE_TOOLS = active_tool_executables(ASSEMBLY_TOOL, DREP_ENABLED, BINNERS, BAKTA_ENABLED)
 PYTHON = sys.executable
 BIN_UTILS = str(WORKFLOW_ROOT / "workflow/scripts/bin_utils.py")
 
@@ -59,7 +61,7 @@ MAGS_SOURCE = ROOT + "/06_drep/{sample}/mags" if DREP_SAMPLE else MAGS
 FINAL_TARGETS = expand(MAGS, sample=SAMPLES)
 FINAL_TARGETS += expand(ROOT + "/09_abundance/{sample}/contig.tsv", sample=SAMPLES)
 FINAL_TARGETS += expand(ROOT + "/09_abundance/{sample}/genome.tsv", sample=SAMPLES)
-for enabled, folder in (("gtdbtk", "07_taxonomy"), ("genes", "08_genes"),
+for enabled, folder in (("gtdbtk", "07_taxonomy"), ("genes", "08_genes"), ("bakta", "13_bakta"),
                         ("checkm", "10_checkm"), ("checkm2", "11_checkm2")):
     if config["analysis"][enabled]:
         FINAL_TARGETS += expand(ROOT + "/" + folder + "/{sample}", sample=SAMPLES)

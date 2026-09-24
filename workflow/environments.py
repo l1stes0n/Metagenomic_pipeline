@@ -20,6 +20,7 @@ TOOL_EXECUTABLES = {
     "refinem": ("refinem",),
     "gtdbtk": ("gtdbtk",),
     "pyrodigal": ("pyrodigal",),
+    "bakta": ("bakta", "bakta_db"),
     "coverm": ("coverm",),
     "checkm": ("checkm",),
     "checkm2": ("checkm2",),
@@ -27,10 +28,10 @@ TOOL_EXECUTABLES = {
 }
 
 ASSEMBLY_TOOLS = ("spades", "megahit")
-OPTIONAL_TOOLS = ("drep",)
+OPTIONAL_TOOLS = ("drep", "bakta")
 
 
-def active_tool_executables(assembly_tool, drep_enabled=False, binners=None):
+def active_tool_executables(assembly_tool, drep_enabled=False, binners=None, bakta_enabled=False):
     if assembly_tool not in ASSEMBLY_TOOLS:
         raise ValueError(f"assembly.tool must be one of {ASSEMBLY_TOOLS}; got {assembly_tool!r}")
     active = {
@@ -40,6 +41,8 @@ def active_tool_executables(assembly_tool, drep_enabled=False, binners=None):
     }
     if not drep_enabled:
         active.pop("drep", None)
+    if not bakta_enabled:
+        active.pop("bakta", None)
     selected = set(BINNER_TOOLS) if binners is None else set(binners)
     if "maxbin2" in selected:
         selected.add("metabat2")
@@ -59,7 +62,8 @@ def configure_conda(software, environ=None):
         environ.setdefault("CONDA_OVERRIDE_CUDA", version)
 
 
-def resolve_environments(specifications, workflow_root, assembly_tool, drep_enabled=False, binners=None):
+def resolve_environments(specifications, workflow_root, assembly_tool, drep_enabled=False, binners=None,
+                         bakta_enabled=False):
     """YAML -> deploy; name/prefix -> activate only, with no install hooks."""
     if not isinstance(specifications, dict):
         raise ValueError("environments must map each tool to an environment YAML, name or path")
@@ -72,6 +76,8 @@ def resolve_environments(specifications, workflow_root, assembly_tool, drep_enab
     required = base | {assembly_tool} | selected
     if drep_enabled:
         required.add("drep")
+    if bakta_enabled:
+        required.add("bakta")
     missing = required - set(specifications)
     unknown = set(specifications) - set(TOOL_EXECUTABLES)
     if missing or unknown:
