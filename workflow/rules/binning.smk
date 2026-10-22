@@ -240,7 +240,7 @@ rule refinement:
 
 rule prepare_mags:
     input:
-        bins=(REFINEM + "/filtered" if config["refinem"]["enabled"] else REFINEMENT)
+        bins=MAGS_BINS
     output:
         mags=directory(MAGS)
     threads: setting("prepare_mags", "threads")
@@ -249,7 +249,7 @@ rule prepare_mags:
         runtime=setting("prepare_mags", "runtime"),
         slurm_account=config["slurm_account"]
     params:
-        source=lambda wc, input: str(Path(input.bins) / ("bins" if config["refinem"]["enabled"] else "final_bins"))
+        source=lambda wc, input: str(Path(input.bins) / MAGS_BINS_SUBDIR)
     log: "logs/prepare_mags/{sample}.log"
     shell:
         r"""

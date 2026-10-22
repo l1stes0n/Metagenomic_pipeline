@@ -28,28 +28,17 @@ TOOL_EXECUTABLES = {
 }
 
 ASSEMBLY_TOOLS = ("spades", "megahit")
-OPTIONAL_TOOLS = ("drep", "bakta")
 
 
-def active_tool_executables(assembly_tool, drep_enabled=False, binners=None, bakta_enabled=False):
+def active_tool_executables(assembly_tool, binners=None, disabled=()):
+    """Executables each environment must provide for the selected branches."""
     if assembly_tool not in ASSEMBLY_TOOLS:
         raise ValueError(f"assembly.tool must be one of {ASSEMBLY_TOOLS}; got {assembly_tool!r}")
-    active = {
-        tool: executables
-        for tool, executables in TOOL_EXECUTABLES.items()
-        if tool not in ASSEMBLY_TOOLS or tool == assembly_tool
-    }
-    if not drep_enabled:
-        active.pop("drep", None)
-    if not bakta_enabled:
-        active.pop("bakta", None)
     selected = set(BINNER_TOOLS) if binners is None else set(binners)
     if "maxbin2" in selected:
         selected.add("metabat2")
-    for tool in BINNER_TOOLS:
-        if tool not in selected:
-            active.pop(tool, None)
-    return active
+    inactive = set(disabled) | (set(ASSEMBLY_TOOLS) - {assembly_tool}) | (set(BINNER_TOOLS) - selected)
+    return {tool: executables for tool, executables in TOOL_EXECUTABLES.items() if tool not in inactive}
 
 
 def configure_conda(software, environ=None):
@@ -62,23 +51,11 @@ def configure_conda(software, environ=None):
         environ.setdefault("CONDA_OVERRIDE_CUDA", version)
 
 
-def resolve_environments(specifications, workflow_root, assembly_tool, drep_enabled=False, binners=None,
-                         bakta_enabled=False):
+def resolve_environments(specifications, workflow_root, active_tools):
     """YAML -> deploy; name/prefix -> activate only, with no install hooks."""
     if not isinstance(specifications, dict):
         raise ValueError("environments must map each tool to an environment YAML, name or path")
-    if assembly_tool not in ASSEMBLY_TOOLS:
-        raise ValueError(f"assembly.tool must be one of {ASSEMBLY_TOOLS}; got {assembly_tool!r}")
-    selected = set(BINNER_TOOLS) if binners is None else set(binners)
-    if "maxbin2" in selected:
-        selected.add("metabat2")
-    base = set(TOOL_EXECUTABLES) - set(ASSEMBLY_TOOLS) - set(OPTIONAL_TOOLS) - set(BINNER_TOOLS)
-    required = base | {assembly_tool} | selected
-    if drep_enabled:
-        required.add("drep")
-    if bakta_enabled:
-        required.add("bakta")
-    missing = required - set(specifications)
+    missing = set(active_tools) - set(specifications)
     unknown = set(specifications) - set(TOOL_EXECUTABLES)
     if missing or unknown:
         raise ValueError(f"Invalid environments keys: missing={sorted(missing)}, unknown={sorted(unknown)}")

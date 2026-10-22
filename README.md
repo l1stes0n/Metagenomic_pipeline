@@ -75,6 +75,8 @@ Reference databases (prepared once, shared by all samples)
   └── CheckM2 v3 ──────────► Binette and CheckM2
 ```
 
+Read QC, bin refinement, and abundance are optional branches; see [Optional Branches](#optional-branches).
+
 ## Installation and Initial Configuration
 
 Run the workflow from a submission node with access to Slurm. The workflow directory, reads, databases, and Conda environments must reside on a shared filesystem visible from compute nodes.
@@ -127,7 +129,7 @@ snakemake prepare_environments \
   --software-deployment-method conda
 ```
 
-This target creates the environments and verifies that the required commands are available.
+This target creates and verifies only the environments required by enabled branches.
 
 To create environments without running command-availability checks:
 
@@ -372,9 +374,32 @@ squeue -u "$USER" -o "%.10i %.32j %.45k %.10T %.10M"
 
 ## Analysis Parameters and Outputs
 
+### Optional Branches
+
+| Setting | Default | Branch |
+| --- | --- | --- |
+| `qc.enabled` | `true` | Read quality control |
+| `assembly.tool` | `spades` | Assembly |
+| `binning.tools` | all five binners | Binning |
+| `refinement.enabled` | `true` | Binette refinement and RefineM filtering |
+| `refinem.enabled` | `true` | RefineM filtering |
+| `drep.sample` | `false` | Within-sample dRep dereplication |
+| `drep.cross_sample` | `false` | Cross-sample dRep dereplication |
+| `analysis.gtdbtk` | `true` | GTDB-Tk taxonomy |
+| `analysis.genes` | `true` | Gene prediction |
+| `analysis.bakta` | `false` | Bakta annotation |
+| `analysis.checkm` | `true` | Independent CheckM assessment |
+| `analysis.checkm2` | `true` | Independent CheckM2 assessment |
+| `abundance.contig` | `true` | CoverM contig abundance |
+| `abundance.genome` | `true` | CoverM genome abundance |
+
+Disabled branches add no jobs to the DAG and are excluded from `prepare_environments`.
+
 ### Quality Control
 
 fastp enables paired-end adapter detection by default, requires a qualified-base threshold of Q20, and retains reads with a minimum length of 50 bases. Host removal is not performed.
+
+Set `qc.enabled: false` to skip fastp: assembly and mapping consume the raw reads listed in `config/samples.tsv`, no `01_qc/` output is produced, and the fastp environment is not prepared.
 
 Quality-control parameters are configured under `qc`. See the [fastp documentation](https://github.com/OpenGene/fastp).
 
@@ -415,6 +440,8 @@ See the [COMEBin](https://github.com/ziyewang/COMEBin), [SemiBin2](https://githu
 
 Binette generates candidate bins through intersections, differences, and unions of multiple bin sets and scores them with CheckM2.
 
+Set `refinement.enabled: false` to skip Binette and all RefineM filtering. This mode requires exactly one binner in `binning.tools` and `refinem.enabled: false`; final MAGs are that binner's normalized bins under `04_binning/<sample>/<binner>/<binner>_bins`, without post-binning quality filtering.
+
 The `refinement` section controls completeness, contamination, contamination-score weighting, and bin-length limits.
 
 See the [pinned Binette parameter implementation](https://github.com/genotoul-bioinfo/Binette/blob/v1.2.1/binette/main.py).
@@ -434,7 +461,7 @@ It uses the assembly FASTA, Binette bins, and the original assembly BAM. Default
 - A contig is filtered when it is an outlier for any enabled criterion
 - Correlation-based filtering is disabled for single-sample coverage with a threshold of `-2`
 
-Configure these values under `refinem`, or set `enabled: false` to disable filtering. Empty bins are removed and recorded in `bin_retention.tsv`; the rule fails if no bins remain.
+RefineM requires `refinement.enabled: true`. Configure these values under `refinem`, or set `enabled: false` to disable filtering. Empty bins are removed and recorded in `bin_retention.tsv`; the rule fails if no bins remain.
 
 See the [official RefineM contamination-identification workflow](https://github.com/donovan-h-parks/RefineM#identifying-potential-contamination).
 
@@ -497,26 +524,28 @@ See the [Bakta documentation](https://github.com/oschwengers/bakta).
 
 CoverM calculates abundance from the assembly BAM in two modes: `coverm contig`, and `coverm genome` against the final MAGs. Both report trimmed-mean coverage, length, count, RPKM, and TPM; genome mode additionally reports relative abundance and uses `--min-covered-fraction 0`. Outputs are `09_abundance/<sample>/contig.tsv` and `09_abundance/<sample>/genome.tsv`.
 
+`abundance.contig` and `abundance.genome` independently enable the two modes (both `true` by default); disabling both also removes the CoverM environment.
+
 See the [CoverM documentation](https://github.com/wwood/CoverM).
 
 ### Output Directory Structure
 
 | Path | Contents |
 | --- | --- |
-| `01_qc/<sample>/` | fastp-filtered reads and HTML/JSON reports |
+| `01_qc/<sample>/` | fastp-filtered reads and HTML/JSON reports (requires `qc.enabled: true`) |
 | `02_assembly/<sample>/scaffolds.fasta` | metaSPAdes or MEGAHIT assembly |
 | `03_mapping/<sample>/` | minibwa index and sorted BAM/BAI files |
 | `04_binning/<sample>/<binner>/` | Raw outputs from the selected binners and normalized `.fa` bins |
 | `04_binning/depth/` | Shared per-contig depth and MaxBin2 abundance files (when a coverage-based binner is selected) |
-| `05_refinement/<sample>/` | Binette `final_bins/` and pre-filtering quality table |
-| `05_refinem/<sample>/` | Scaffold statistics, outlier tables, filtered bins, and retention records |
+| `05_refinement/<sample>/` | Binette `final_bins/` and pre-filtering quality table (requires `refinement.enabled: true`) |
+| `05_refinem/<sample>/` | Scaffold statistics, outlier tables, filtered bins, and retention records (requires `refinement.enabled: true` and `refinem.enabled: true`) |
 | `06_mags/<sample>/*.fna` | Normalized per-sample MAGs; pre-dereplication input when `drep.sample` is enabled |
 | `06_drep/<sample>/` | Within-sample dRep MAGs, CheckM2 report, and dRep output (when enabled) |
 | `12_drep/` | Cross-sample MAG pool, CheckM2 report, and dRep output (when enabled) |
 | `07_taxonomy/<sample>/` | GTDB-Tk taxonomy results |
 | `08_genes/<sample>/` | Per-MAG protein `.faa`, gene `.ffn`, and `.gff` files |
 | `13_bakta/<sample>/<mag>/` | Bakta annotation per MAG (when enabled) |
-| `09_abundance/<sample>/{contig,genome}.tsv` | CoverM abundance tables |
+| `09_abundance/<sample>/{contig,genome}.tsv` | CoverM abundance tables (controlled by `abundance.contig` and `abundance.genome`) |
 | `10_checkm/<sample>/quality_report.tsv` | CheckM assessment of final MAGs |
 | `11_checkm2/<sample>/quality_report.tsv` | CheckM2 quality report for final MAGs |
 

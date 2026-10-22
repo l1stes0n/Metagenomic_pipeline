@@ -75,6 +75,8 @@ Reference databases (prepared once, shared by all samples)
   └── CheckM2 v3 ──────────► Binette and CheckM2
 ```
 
+质控、Bin 精炼和丰度计算为可选分支，参见[可选分支](#可选分支)。
+
 ## 安装与初始配置
 
 请从能够访问 Slurm 的提交节点运行工作流。工作流目录、测序数据、数据库和 Conda 环境必须位于计算节点可访问的共享文件系统中。
@@ -127,7 +129,7 @@ snakemake prepare_environments \
   --software-deployment-method conda
 ```
 
-该目标会创建环境并验证所需命令是否可用。
+该目标只会创建并验证已启用分支所需的环境。
 
 如果只创建环境而不检查命令：
 
@@ -372,9 +374,32 @@ squeue -u "$USER" -o "%.10i %.32j %.45k %.10T %.10M"
 
 ## 分析参数与输出
 
+### 可选分支
+
+| 配置项 | 默认值 | 分支 |
+| --- | --- | --- |
+| `qc.enabled` | `true` | 质控 |
+| `assembly.tool` | `spades` | 组装 |
+| `binning.tools` | 全部五个分箱工具 | 分箱 |
+| `refinement.enabled` | `true` | Binette 精炼和 RefineM 过滤 |
+| `refinem.enabled` | `true` | RefineM 过滤 |
+| `drep.sample` | `false` | 样本内 dRep 去冗余 |
+| `drep.cross_sample` | `false` | 跨样本 dRep 去冗余 |
+| `analysis.gtdbtk` | `true` | GTDB-Tk 分类注释 |
+| `analysis.genes` | `true` | 基因预测 |
+| `analysis.bakta` | `false` | Bakta 注释 |
+| `analysis.checkm` | `true` | 独立 CheckM 评估 |
+| `analysis.checkm2` | `true` | 独立 CheckM2 评估 |
+| `abundance.contig` | `true` | CoverM contig 丰度 |
+| `abundance.genome` | `true` | CoverM genome 丰度 |
+
+被关闭的分支不会向 DAG 添加任何作业，并且会从 `prepare_environments` 中排除。
+
 ### 质量控制
 
 fastp 默认启用双端 adapter 检测，合格碱基阈值为 Q20，最短 read 长度为 50，不执行宿主去除。
+
+设置 `qc.enabled: false` 可跳过 fastp：组装和比对直接使用 `config/samples.tsv` 中列出的原始 reads，不产生 `01_qc/` 输出，也不会准备 fastp 环境。
 
 质控参数在 `qc` 中配置。参见 [fastp 文档](https://github.com/OpenGene/fastp)。
 
@@ -415,6 +440,8 @@ minibwa 对组装结果建立索引，质控后的 reads 回贴到组装序列�
 
 Binette 通过多套 bin 的交集、差集和并集生成候选，并使用 CheckM2 评分。
 
+设置 `refinement.enabled: false` 可跳过 Binette 以及全部 RefineM 过滤。该模式要求 `binning.tools` 中恰好只有一个分箱工具，并且 `refinem.enabled: false`；最终 MAGs 为该分箱工具在 `04_binning/<sample>/<binner>/<binner>_bins` 下归一化后的 bins，不再进行分箱后质量过滤。
+
 `refinement` 控制完整度、污染度、污染评分权重和 bin 长度范围。
 
 参见 [Binette 固定版本的参数实现](https://github.com/genotoul-bioinfo/Binette/blob/v1.2.1/binette/main.py)。
@@ -434,7 +461,7 @@ scaffold_stats -> outliers -> filter_bins
 - contig 满足任意已启用的离群标准时即被过滤
 - 单样本覆盖度分析通过阈值 `-2` 关闭相关系数过滤
 
-可在 `refinem` 中修改这些参数，或设置 `enabled: false` 关闭过滤。空 bin 会从最终结果中删除并记录在 `bin_retention.tsv` 中；如果没有任何 bin 保留，规则将失败。
+RefineM 需要 `refinement.enabled: true`。可在 `refinem` 中修改这些参数，或设置 `enabled: false` 关闭过滤。空 bin 会从最终结果中删除并记录在 `bin_retention.tsv` 中；如果没有任何 bin 保留，规则将失败。
 
 参见 [RefineM 官方污染识别流程](https://github.com/donovan-h-parks/RefineM#identifying-potential-contamination)。
 
@@ -497,26 +524,28 @@ Bakta 为可选、与分类无关的注释分支，由 `analysis.bakta` 控制�
 
 CoverM 基于组装 BAM 以两种模式计算丰度：`coverm contig`，以及针对最终 MAGs 的 `coverm genome`。两者都输出 trimmed mean 覆盖度、长度、count、RPKM 和 TPM；genome 模式还会输出相对丰度，并使用 `--min-covered-fraction 0`。输出为 `09_abundance/<sample>/contig.tsv` 和 `09_abundance/<sample>/genome.tsv`。
 
+`abundance.contig` 和 `abundance.genome` 分别独立控制两种模式（默认均为 `true`）；两者都关闭时也不会准备 CoverM 环境。
+
 参见 [CoverM 文档](https://github.com/wwood/CoverM)。
 
 ### 输出目录结构
 
 | 路径 | 内容 |
 | --- | --- |
-| `01_qc/<sample>/` | fastp 过滤后的 reads 以及 HTML/JSON 报告 |
+| `01_qc/<sample>/` | fastp 过滤后的 reads 以及 HTML/JSON 报告（需要 `qc.enabled: true`） |
 | `02_assembly/<sample>/scaffolds.fasta` | metaSPAdes 或 MEGAHIT 组装结果 |
 | `03_mapping/<sample>/` | minibwa 索引以及排序后的 BAM/BAI 文件 |
 | `04_binning/<sample>/<binner>/` | 所选分箱工具的原始结果和统一格式的 `.fa` bins |
 | `04_binning/depth/` | 共享的 per-contig 深度文件与 MaxBin2 丰度文件（选中基于深度的分箱工具时） |
-| `05_refinement/<sample>/` | Binette `final_bins/` 和过滤前质量表 |
-| `05_refinem/<sample>/` | scaffold 统计、离群表、过滤后的 bins 和保留记录 |
+| `05_refinement/<sample>/` | Binette `final_bins/` 和过滤前质量表（需要 `refinement.enabled: true`） |
+| `05_refinem/<sample>/` | scaffold 统计、离群表、过滤后的 bins 和保留记录（需要 `refinement.enabled: true` 和 `refinem.enabled: true`） |
 | `06_mags/<sample>/*.fna` | 归一化后的每样本 MAGs；启用 `drep.sample` 时为去冗余前的输入 |
 | `06_drep/<sample>/` | 样本内 dRep 的 MAGs、CheckM2 报告与 dRep 输出（启用时） |
 | `12_drep/` | 跨样本 MAG 汇总、CheckM2 报告与 dRep 输出（启用时） |
 | `07_taxonomy/<sample>/` | GTDB-Tk 分类结果 |
 | `08_genes/<sample>/` | 每个 MAG 的蛋白 `.faa`、基因 `.ffn` 和 `.gff` 文件 |
 | `13_bakta/<sample>/<mag>/` | 每个 MAG 的 Bakta 注释（启用时） |
-| `09_abundance/<sample>/{contig,genome}.tsv` | CoverM 丰度表 |
+| `09_abundance/<sample>/{contig,genome}.tsv` | CoverM 丰度表（由 `abundance.contig` 和 `abundance.genome` 控制） |
 | `10_checkm/<sample>/quality_report.tsv` | 最终 MAGs 的 CheckM 评估结果 |
 | `11_checkm2/<sample>/quality_report.tsv` | 最终 MAGs 的 CheckM2 质量报告 |
 

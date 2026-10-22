@@ -23,11 +23,31 @@ ASSEMBLY_TOOL = config["assembly"].get("tool", "spades")
 DREP_SAMPLE = config.get("drep", {}).get("sample", False)
 DREP_CROSS = config.get("drep", {}).get("cross_sample", False)
 DREP_ENABLED = DREP_SAMPLE or DREP_CROSS
+QC_ENABLED = config["qc"]["enabled"]
+REFINEMENT_ENABLED = config["refinement"]["enabled"]
+REFINEM_ENABLED = config["refinem"]["enabled"] and REFINEMENT_ENABLED
+ABUNDANCE_CONTIG = config["abundance"]["contig"]
+ABUNDANCE_GENOME = config["abundance"]["genome"]
 BINNERS = config["binning"]["tools"]
 BAKTA_ENABLED = config["analysis"]["bakta"]
-ENVS = resolve_environments(config["environments"], WORKFLOW_ROOT, ASSEMBLY_TOOL, DREP_ENABLED, BINNERS,
-                            BAKTA_ENABLED)
-ACTIVE_TOOLS = active_tool_executables(ASSEMBLY_TOOL, DREP_ENABLED, BINNERS, BAKTA_ENABLED)
+DISABLED = {
+    tool
+    for tool, enabled in (
+        ("fastp", QC_ENABLED),
+        ("binette", REFINEMENT_ENABLED),
+        ("refinem", REFINEM_ENABLED),
+        ("coverm", ABUNDANCE_CONTIG or ABUNDANCE_GENOME),
+        ("gtdbtk", config["analysis"]["gtdbtk"]),
+        ("pyrodigal", config["analysis"]["genes"]),
+        ("checkm", config["analysis"]["checkm"]),
+        ("checkm2", config["analysis"]["checkm2"] or DREP_ENABLED),
+        ("bakta", BAKTA_ENABLED),
+        ("drep", DREP_ENABLED),
+    )
+    if not enabled
+}
+ACTIVE_TOOLS = active_tool_executables(ASSEMBLY_TOOL, BINNERS, DISABLED)
+ENVS = resolve_environments(config["environments"], WORKFLOW_ROOT, ACTIVE_TOOLS)
 PYTHON = sys.executable
 BIN_UTILS = str(WORKFLOW_ROOT / "workflow/scripts/bin_utils.py")
 
@@ -58,9 +78,22 @@ REFINEM = ROOT + "/05_refinem/{sample}"
 MAGS = ROOT + "/06_mags/{sample}"
 MAGS_SOURCE = ROOT + "/06_drep/{sample}/mags" if DREP_SAMPLE else MAGS
 
+if REFINEM_ENABLED:
+    MAGS_BINS = REFINEM + "/filtered"
+    MAGS_BINS_SUBDIR = "bins"
+elif REFINEMENT_ENABLED:
+    MAGS_BINS = REFINEMENT
+    MAGS_BINS_SUBDIR = "final_bins"
+else:
+    # Validation requires a single binner when refinement is disabled.
+    MAGS_BINS = BINNING + "/" + BINNERS[0]
+    MAGS_BINS_SUBDIR = BINNERS[0] + "_bins"
+
 FINAL_TARGETS = expand(MAGS, sample=SAMPLES)
-FINAL_TARGETS += expand(ROOT + "/09_abundance/{sample}/contig.tsv", sample=SAMPLES)
-FINAL_TARGETS += expand(ROOT + "/09_abundance/{sample}/genome.tsv", sample=SAMPLES)
+if ABUNDANCE_CONTIG:
+    FINAL_TARGETS += expand(ROOT + "/09_abundance/{sample}/contig.tsv", sample=SAMPLES)
+if ABUNDANCE_GENOME:
+    FINAL_TARGETS += expand(ROOT + "/09_abundance/{sample}/genome.tsv", sample=SAMPLES)
 for enabled, folder in (("gtdbtk", "07_taxonomy"), ("genes", "08_genes"), ("bakta", "13_bakta"),
                         ("checkm", "10_checkm"), ("checkm2", "11_checkm2")):
     if config["analysis"][enabled]:

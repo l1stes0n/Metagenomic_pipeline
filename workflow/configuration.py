@@ -79,6 +79,12 @@ def validate_config(config):
     for step in ("gtdbtk", "genes", "bakta", "checkm", "checkm2"):
         if not isinstance(config["analysis"][step], bool):
             raise ValueError(f"analysis.{step} must be true or false")
+    abundance = config.get("abundance")
+    if not isinstance(abundance, dict):
+        raise ValueError("abundance configuration is required")
+    for key in ("contig", "genome"):
+        if not isinstance(abundance.get(key, True), bool):
+            raise ValueError(f"abundance.{key} must be true or false")
     assembly = config["assembly"]
     if assembly.get("tool", "spades") not in ("spades", "megahit"):
         raise ValueError("assembly.tool must be spades or megahit")
@@ -121,8 +127,12 @@ def validate_config(config):
     if not isinstance(bakta.get("meta", False), bool):
         raise ValueError("bakta.meta must be true or false")
     positive_int(config["gtdbtk"]["pplacer_threads"], "gtdbtk.pplacer_threads")
+    if not isinstance(config["qc"].get("enabled", True), bool):
+        raise ValueError("qc.enabled must be true or false")
     positive_int(config["qc"]["length_required"], "qc.length_required")
     positive_int(config["qc"]["qualified_quality_phred"], "qc.qualified_quality_phred")
+    if not isinstance(config["refinement"].get("enabled", True), bool):
+        raise ValueError("refinement.enabled must be true or false")
     for key in ("completeness", "contamination"):
         value = config["refinement"][key]
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value <= 100:
@@ -146,4 +156,9 @@ def validate_config(config):
             raise ValueError(f"refinem.{key} must be between 0 and 1")
     if config["refinem"]["report_type"] not in ("any", "all"):
         raise ValueError("refinem.report_type must be any or all")
+    if not config["refinement"].get("enabled", True):
+        if config["refinem"]["enabled"]:
+            raise ValueError("refinem.enabled requires refinement.enabled")
+        if len(tools) != 1:
+            raise ValueError("binning.tools must select exactly one binner when refinement.enabled is false")
     return root

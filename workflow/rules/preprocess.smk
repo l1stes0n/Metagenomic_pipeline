@@ -1,3 +1,20 @@
+QC_FILES = {"r1": "final_pure_reads_1.fastq", "r2": "final_pure_reads_2.fastq"}
+
+
+def read_path(sample, mate):
+    """Path handed to the tool, following the QC branch."""
+    if QC_ENABLED:
+        return QC.format(sample=sample) + "/" + QC_FILES[mate]
+    return SAMPLE_DATA[sample][mate]
+
+
+def read_input(wildcards):
+    """fastp output directory when QC runs, otherwise the raw FASTQ files."""
+    if QC_ENABLED:
+        return QC.format(sample=wildcards.sample)
+    return [SAMPLE_DATA[wildcards.sample]["r1"], SAMPLE_DATA[wildcards.sample]["r2"]]
+
+
 rule read_qc:
     input:
         r1=lambda wc: SAMPLE_DATA[wc.sample]["r1"],
@@ -33,7 +50,7 @@ rule read_qc:
 if config["assembly"].get("tool", "spades") == "megahit":
     rule assembly:
         input:
-            qc=rules.read_qc.output.qc
+            reads=read_input
         output:
             assembly=directory(ASSEMBLY)
         threads: setting("assembly", "threads")
@@ -42,6 +59,8 @@ if config["assembly"].get("tool", "spades") == "megahit":
             runtime=setting("assembly", "runtime"),
             slurm_account=config["slurm_account"]
         params:
+            r1=lambda wc: read_path(wc.sample, "r1"),
+            r2=lambda wc: read_path(wc.sample, "r2"),
             memory=megahit_memory(config["assembly"].get("megahit_memory_gb", 0.9)),
             min_contig_len=config["assembly"].get("min_contig_len", 1000),
             presets=megahit_preset_option(config["assembly"].get("megahit_preset", ""))
@@ -53,8 +72,7 @@ if config["assembly"].get("tool", "spades") == "megahit":
             {{
                 mkdir -p {output.assembly:q}
                 rm -rf {output.assembly:q}/megahit
-                megahit -1 {input.qc:q}/final_pure_reads_1.fastq \
-                    -2 {input.qc:q}/final_pure_reads_2.fastq -t {threads} \
+                megahit -1 {params.r1:q} -2 {params.r2:q} -t {threads} \
                     -m {params.memory} --min-contig-len {params.min_contig_len} \
                     {params.presets} -o {output.assembly:q}/megahit
                 mv {output.assembly:q}/megahit/final.contigs.fa {output.assembly:q}/scaffolds.fasta
@@ -65,7 +83,7 @@ if config["assembly"].get("tool", "spades") == "megahit":
 else:
     rule assembly:
         input:
-            qc=rules.read_qc.output.qc
+            reads=read_input
         output:
             assembly=directory(ASSEMBLY)
         threads: setting("assembly", "threads")
@@ -74,6 +92,8 @@ else:
             runtime=setting("assembly", "runtime"),
             slurm_account=config["slurm_account"]
         params:
+            r1=lambda wc: read_path(wc.sample, "r1"),
+            r2=lambda wc: read_path(wc.sample, "r2"),
             memory_gb=config["assembly"]["memory_gb"],
             kmers=config["assembly"]["kmers"]
         conda: ENVS["spades"]
@@ -82,8 +102,7 @@ else:
             r"""
             limit_threads {threads}
             {{
-                metaspades.py -1 {input.qc:q}/final_pure_reads_1.fastq \
-                    -2 {input.qc:q}/final_pure_reads_2.fastq -t {threads} \
+                metaspades.py -1 {params.r1:q} -2 {params.r2:q} -t {threads} \
                     -m {params.memory_gb} -k {params.kmers:q} --only-assembler \
                     -o {output.assembly:q}
                 require_nonempty {output.assembly:q}/scaffolds.fasta
@@ -118,7 +137,7 @@ rule mapping:
     input:
         l2b=rules.index.output.l2b,
         mbw=rules.index.output.mbw,
-        qc=rules.read_qc.output.qc
+        reads=read_input
     output:
         sam=temp(ROOT + "/03_mapping/{sample}/assembly.sam")
     threads: setting("mapping", "threads")
@@ -128,6 +147,8 @@ rule mapping:
         slurm_account=config["slurm_account"]
     params:
         prefix=INDEX,
+        r1=lambda wc: read_path(wc.sample, "r1"),
+        r2=lambda wc: read_path(wc.sample, "r2"),
         # minibwa adds up to two I/O threads when workers > 1.
         workers=lambda wc, threads: max(1, threads - 2)
     conda: ENVS["minibwa"]
@@ -136,8 +157,7 @@ rule mapping:
         r"""
         limit_threads 1
         minibwa map -t {params.workers} {params.prefix:q} \
-            {input.qc:q}/final_pure_reads_1.fastq {input.qc:q}/final_pure_reads_2.fastq \
-            > {output.sam:q} 2> {log:q}
+            {params.r1:q} {params.r2:q} > {output.sam:q} 2> {log:q}
         require_nonempty {output.sam:q}
         """
 
