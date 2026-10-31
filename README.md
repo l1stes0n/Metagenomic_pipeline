@@ -225,7 +225,7 @@ sampleB	/data/sampleB_R1.fastq.gz	/data/sampleB_R2.fastq.gz
 
 ## Database Management
 
-The `prepare_database` rule performs resumable downloads, safe extraction, directory-structure validation, and atomic publication. Each of the three shared databases is prepared once on shared storage and reused by all samples. The Bakta database is pinned by URL and installed with Bakta's own `bakta_db install`, followed by `amrfinder_update`.
+The `prepare_database` rule downloads and installs the databases with resumable downloads. Each of the three shared databases is prepared once and reused by all samples. The Bakta database is downloaded from a pinned URL, installed with Bakta's own `bakta_db install`, and finished with `amrfinder_update`.
 
 | Database | Pinned release | Used by |
 | --- | --- | --- |
@@ -247,17 +247,11 @@ On the first run, prepare the databases on a node with internet access and write
 snakemake prepare_databases --cores 4
 ```
 
-Databases can also be prepared through an internet-enabled compute partition:
+Database preparation always runs on the node executing Snakemake, never as cluster jobs, because downloads and installation require internet access that compute nodes may not provide. Run the command on a login or submit node with network access.
 
-```bash
-snakemake prepare_databases \
-  --workflow-profile slurm \
-  --jobs 3
-```
+Database preparation is included in the full DAG. The explicit `prepare_databases` target prepares the three shared databases and, when `analysis.bakta` is enabled, the Bakta database; a normal run prepares only those required by enabled branches. An existing Bakta directory (`mode: existing`) is only validated locally by the `prepare_databases` run, without a cluster job.
 
-Database preparation is included in the full DAG. The explicit `prepare_databases` target prepares the three shared databases and, when `analysis.bakta` is enabled, the Bakta database; a normal run prepares only those required by enabled branches.
-
-GTDB is large. Reserve enough space for the compressed archive, the temporary extraction directory, and the final database. Download archives are retained under `.downloads/` in each database's parent directory to support resumption and reuse.
+GTDB is large. Reserve enough space for the compressed archive, the temporary extraction directory, and the final database. Downloaded archives are retained under `.downloads/` in each database's parent directory to support resumption and reuse.
 
 ### Reusing Existing Databases
 
@@ -291,7 +285,7 @@ Each `path` must point to the actual database root:
 
 Existing-database mode validates the required paths and files. GTDB releases other than R232 require a compatible GTDB-Tk environment. Use a new version-specific directory when changing database releases.
 
-Database entries are only read by the branches that use them, so databases that are not used can be omitted entirely. Bakta's `type` and `url` are only needed for downloads; an existing Bakta database needs `mode: existing`, `path`, and `version` only.
+Database entries are only read by the branches that use them, so databases that are not used can be omitted entirely. Bakta's `type` and `url` are only needed for downloads; an existing Bakta database needs `mode: existing`, `path`, and `version` only, and is validated locally by `snakemake prepare_databases` (no cluster job).
 
 Readiness records are stored under:
 
@@ -524,7 +518,7 @@ See the [Pyrodigal 3.7.1 command-line documentation](https://pyrodigal.readthedo
 
 Bakta is an optional, taxonomy-independent annotation branch controlled by `analysis.bakta` (disabled by default). Each final MAG is annotated separately into `13_bakta/<sample>/<mag>/` with GFF3, GenBank, EMBL, FASTA, TSV, JSON, and plot outputs.
 
-`bakta.meta` enables Bakta's `--meta` CDS prediction mode for fragmented MAGs (default false). `databases.bakta.type` selects the `light` (default) or `full` database and `databases.bakta.url` pins the matching archive (for example `https://zenodo.org/record/14916843/files/db-light.tar.xz`). Downloads are installed with `bakta_db install` and `amrfinder_update` into a `path` ending in `db-light` or `db`. When `analysis.bakta` is enabled, the database is part of `prepare_databases`; otherwise request it explicitly with `--until results/00_databases/bakta.ready.json`. Keep the Bakta database on fast local storage when possible; SQLite lookups over network filesystems slow annotation down.
+`bakta.meta` enables Bakta's `--meta` CDS prediction mode for fragmented MAGs (default false). `databases.bakta.type` selects the `light` (default) or `full` database and `databases.bakta.url` pins the matching archive (for example `https://zenodo.org/record/14916843/files/db-light.tar.xz`). Downloads run on the local (submit) node with `wget` and are installed with `bakta_db install` and `amrfinder_update` into a `path` ending in `db-light` or `db`. When `analysis.bakta` is enabled, the database is prepared as part of `prepare_databases`; with `mode: existing` the provided directory is validated locally by that run instead of a cluster job. Otherwise request it explicitly with `--until results/00_databases/bakta.ready.json`. Keep the Bakta database on fast local storage when possible; SQLite lookups over network filesystems slow annotation down.
 
 See the [Bakta documentation](https://github.com/oschwengers/bakta).
 

@@ -225,7 +225,7 @@ sampleB	/data/sampleB_R1.fastq.gz	/data/sampleB_R2.fastq.gz
 
 ## 数据库管理
 
-`prepare_database` 规则负责断点续传、安全解压、目录结构检查和原子发布。三个共享数据库分别只准备一次，并由所有样本共享。Bakta 数据库通过固定 URL 下载，并使用 Bakta 自带的 `bakta_db install` 安装，随后执行 `amrfinder_update`。
+`prepare_database` 规则负责数据库的下载与安装，并支持断点续传。三个共享数据库只需准备一次，所有样本共用。Bakta 数据库按固定 URL 下载，用 Bakta 自带的 `bakta_db install` 安装，再执行 `amrfinder_update`。
 
 | 数据库 | 固定版本 | 使用方 |
 | --- | --- | --- |
@@ -247,17 +247,11 @@ sampleB	/data/sampleB_R1.fastq.gz	/data/sampleB_R2.fastq.gz
 snakemake prepare_databases --cores 4
 ```
 
-也可以通过能够联网的计算分区准备数据库：
-
-```bash
-snakemake prepare_databases \
-  --workflow-profile slurm \
-  --jobs 3
-```
+数据库准备始终在运行 Snakemake 的节点本地执行，不会提交为集群作业：下载和安装需要计算节点可能没有的外网访问。请在能联网的登录/提交节点上运行该命令。
 
 数据库准备已经包含在完整 DAG 中。显式执行 `prepare_databases` 会准备三个共享数据库；当 `analysis.bakta` 启用时还会准备 Bakta 数据库；正常分析只准备已启用分支所需的数据库。
 
-GTDB 数据量较大，请为压缩包、临时解压目录和最终数据库预留足够空间。下载文件会保留在各数据库父目录下的 `.downloads/` 中，以便断点续传和复用。
+GTDB 数据量较大，请为压缩包、临时解压目录和最终数据库预留足够空间。下载的压缩包会保留在各数据库父目录下的 `.downloads/` 中，以便断点续传和复用。
 
 ### 复用已有数据库
 
@@ -524,7 +518,7 @@ GTDB-Tk 使用 `classify_wf --skip_ani_screen` 基于固定的 GTDB R232 版本�
 
 Bakta 为可选、与分类无关的注释分支，由 `analysis.bakta` 控制（默认关闭）。每个最终 MAG 单独注释到 `13_bakta/<sample>/<mag>/`，包含 GFF3、GenBank、EMBL、FASTA、TSV、JSON 和作图输出。
 
-`bakta.meta` 启用 Bakta 的 `--meta` CDS 预测模式，适合碎片化的 MAGs（默认 false）。`databases.bakta.type` 选择 `light`（默认）或 `full` 数据库，`databases.bakta.url` 固定对应存档（例如 `https://zenodo.org/record/14916843/files/db-light.tar.xz`）。下载后使用 `bakta_db install` 和 `amrfinder_update` 安装到以 `db-light` 或 `db` 结尾的 `path`。`analysis.bakta` 启用时，该数据库包含在 `prepare_databases` 中；否则用 `--until results/00_databases/bakta.ready.json` 单独准备。Bakta 数据库建议放在快速的本地存储上，网络文件系统会显著拖慢 SQLite 查询。
+`bakta.meta` 启用 Bakta 的 `--meta` CDS 预测模式，适合碎片化的 MAGs（默认 false）。`databases.bakta.type` 选择 `light`（默认）或 `full` 数据库，`databases.bakta.url` 固定对应存档（例如 `https://zenodo.org/record/14916843/files/db-light.tar.xz`）。下载在本地（提交）节点通过 `wget` 完成，并使用 `bakta_db install` 和 `amrfinder_update` 安装到以 `db-light` 或 `db` 结尾的 `path`。`analysis.bakta` 启用时，该数据库包含在 `prepare_databases` 中；使用已有目录（`mode: existing`）时由该运行在本地校验，不提交集群作业；否则用 `--until results/00_databases/bakta.ready.json` 单独准备。Bakta 数据库建议放在快速的本地存储上，网络文件系统会显著拖慢 SQLite 查询。
 
 参见 [Bakta 文档](https://github.com/oschwengers/bakta)。
 

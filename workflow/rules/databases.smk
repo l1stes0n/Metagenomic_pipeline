@@ -68,6 +68,8 @@ def bakta_archive():
 rule prepare_databases:
     input:
         [database_ready(name) for name in DATABASE_NAMES]
+    # Download/install needs internet access, which compute nodes may lack.
+    localrule: True
 
 
 rule prepare_database:
@@ -75,6 +77,7 @@ rule prepare_database:
         ROOT + "/00_databases/{database}.ready.json"
     wildcard_constraints:
         database="gtdbtk|checkm|checkm2"
+    localrule: True
     params:
         script=DATABASE_SCRIPT,
         spec=lambda wc: database_spec(wc.database)
@@ -94,30 +97,29 @@ rule prepare_database:
         """
 
 
-rule prepare_bakta:
-    output:
-        database_ready("bakta")
-    params:
-        spec=lambda wc: database_spec("bakta"),
-        script=DATABASE_SCRIPT,
-        database=lambda wc: database_dir("bakta"),
-        parent=lambda wc: str(Path(database_dir("bakta")).parent),
-        archive=lambda wc: bakta_archive(),
-        url=lambda wc: bakta_url(),
-        mode=lambda wc: bakta_mode(),
-    threads: setting("prepare_database", "threads")
-    resources:
-        slurm_partition=setting("prepare_database", "partition"),
-        runtime=setting("prepare_database", "runtime"),
-        slurm_account=config.get("slurm_account", "")
-    conda: ENVS["bakta"]
-    log:
-        ROOT + "/logs/databases/bakta.log"
-    shell:
-        r"""
-        mkdir -p "$(dirname {log:q})"
-        if [[ "{params.mode}" == "download" ]]; then
-            mkdir -p {params.parent:q} "$(dirname {params.archive:q})"
+if bakta_mode() == "download":
+    rule prepare_bakta:
+        output:
+            database_ready("bakta")
+        localrule: True
+        params:
+            spec=lambda wc: database_spec("bakta"),
+            script=DATABASE_SCRIPT,
+            database=lambda wc: database_dir("bakta"),
+            parent=lambda wc: str(Path(database_dir("bakta")).parent),
+            archive=lambda wc: bakta_archive(),
+            url=lambda wc: bakta_url(),
+        threads: setting("prepare_database", "threads")
+        resources:
+            slurm_partition=setting("prepare_database", "partition"),
+            runtime=setting("prepare_database", "runtime"),
+            slurm_account=config.get("slurm_account", "")
+        conda: ENVS["bakta"]
+        log:
+            ROOT + "/logs/databases/bakta.log"
+        shell:
+            r"""
+            mkdir -p "$(dirname {log:q})" {params.parent:q} "$(dirname {params.archive:q})"
             if [[ ! -s {params.database:q}/version.json ]]; then
                 {{
                     wget -c -O {params.archive:q} {params.url:q}
@@ -126,7 +128,24 @@ rule prepare_bakta:
                     amrfinder_update --force_update --database {params.database:q}/amrfinderplus-db/
                 }} >> {log:q} 2>&1
             fi
-        fi
-        {PYTHON:q} {params.script:q} --name bakta --spec {params.spec:q} \
-            --marker {output:q} --validate-only >> {log:q} 2>&1
-        """
+            {PYTHON:q} {params.script:q} --name bakta --spec {params.spec:q} \
+                --marker {output:q} --validate-only >> {log:q} 2>&1
+            """
+else:
+    # The database directory is provided by the user: validate it locally as part
+    # of prepare_databases instead of submitting a cluster job or creating an env.
+    rule prepare_bakta:
+        output:
+            database_ready("bakta")
+        localrule: True
+        params:
+            spec=lambda wc: database_spec("bakta"),
+            script=DATABASE_SCRIPT,
+        log:
+            ROOT + "/logs/databases/bakta.log"
+        shell:
+            r"""
+            mkdir -p "$(dirname {log:q})"
+            {PYTHON:q} {params.script:q} --name bakta --spec {params.spec:q} \
+                --marker {output:q} --validate-only > {log:q} 2>&1
+            """
