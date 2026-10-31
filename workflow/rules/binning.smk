@@ -218,7 +218,7 @@ rule refinement:
         bin_dirs=[str(Path(b) / s) for b, s in BINNER_SETS],
         completeness=threshold("completeness"),
         contamination=threshold("contamination"),
-        checkm2_db=checkm2_database_file(),
+        checkm2_db=lambda wc: checkm2_database_file(),
         weight=config["refinement"]["contamination_weight"],
         min_length=config["refinement"]["min_length"],
         max_length=config["refinement"]["max_length"]

@@ -10,7 +10,7 @@ rule gtdbtk:
         runtime=setting("gtdbtk", "runtime"),
         slurm_account=config["slurm_account"]
     params:
-        data_path=database_dir("gtdbtk"),
+        data_path=lambda wc: database_dir("gtdbtk"),
         pplacer_threads=lambda wc, threads: min(threads, config["gtdbtk"]["pplacer_threads"])
     conda: ENVS["gtdbtk"]
     log: "logs/gtdbtk/{sample}.log"
@@ -119,7 +119,7 @@ rule checkm:
         runtime=setting("checkm", "runtime"),
         slurm_account=config["slurm_account"]
     params:
-        data_path=database_dir("checkm")
+        data_path=lambda wc: database_dir("checkm")
     conda: ENVS["checkm"]
     log: "logs/checkm/{sample}.log"
     shell:
@@ -148,7 +148,7 @@ rule checkm2:
         runtime=setting("checkm2", "runtime"),
         slurm_account=config["slurm_account"]
     params:
-        database_path=checkm2_database_file()
+        database_path=lambda wc: checkm2_database_file()
     conda: ENVS["checkm2"]
     log: "logs/checkm2/{sample}.log"
     shell:
@@ -175,7 +175,7 @@ rule bakta:
         runtime=setting("bakta", "runtime"),
         slurm_account=config["slurm_account"]
     params:
-        database_path=database_dir("bakta"),
+        database_path=lambda wc: database_dir("bakta"),
         meta="--meta" if config.get("bakta", {}).get("meta", False) else ""
     conda: ENVS["bakta"]
     log: "logs/bakta/{sample}.log"

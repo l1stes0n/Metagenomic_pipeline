@@ -1,5 +1,6 @@
 # Set "mode" to "existing" to use an existing database.
 # path must point to the database root directory containing the actual data files.
+# Bakta's "type" is optional (light by default, or full) and only used for downloads.
 databases:
   gtdbtk:
     mode: download

@@ -285,6 +285,8 @@ Each `path` must point to the actual database root:
 
 Existing-database mode validates the required paths and files. GTDB releases other than R232 require a compatible GTDB-Tk environment. Use a new version-specific directory when changing database releases.
 
+Database entries are only read by the branches that use them, so databases that are not used can be omitted entirely. Bakta's `type` is optional: it defaults to `light` and only matters when downloading; an existing Bakta database needs `mode: existing`, `path`, and `version` only.
+
 Readiness records are stored under:
 
 ```text

@@ -5,7 +5,15 @@ DATABASE_NAMES = ("gtdbtk", "checkm", "checkm2")
 DATABASE_SCRIPT = str(WORKFLOW_ROOT / "workflow/scripts/prepare_database.py")
 
 
+def database_spec(name):
+    if name not in config["databases"]:
+        raise ValueError(f"databases.{name} is required")
+    return json.dumps(config["databases"][name], sort_keys=True)
+
+
 def database_dir(name):
+    if name not in config["databases"] or not str(config["databases"][name].get("path", "")).strip():
+        raise ValueError(f"databases.{name}.path is required")
     return str(Path(config["databases"][name]["path"]).expanduser().resolve())
 
 
@@ -17,8 +25,14 @@ def checkm2_database_file():
     return database_dir("checkm2") + "/uniref100.KO.1.dmnd"
 
 
+def bakta_setting(key, default=None):
+    """Optional Bakta keys; mode and type are only needed for downloads."""
+    return config["databases"].get("bakta", {}).get(key, default)
+
+
 def bakta_minor():
-    return str(config["databases"]["bakta"]["version"]).split(".")[-1]
+    version = str(bakta_setting("version", "")).strip()
+    return version.split(".")[-1] if version else "0"
 
 
 rule prepare_databases:
@@ -33,7 +47,7 @@ rule prepare_database:
         database="gtdbtk|checkm|checkm2"
     params:
         script=DATABASE_SCRIPT,
-        spec=lambda wc: json.dumps(config["databases"][wc.database], sort_keys=True)
+        spec=lambda wc: database_spec(wc.database)
     threads: setting("prepare_database", "threads")
     resources:
         slurm_partition=setting("prepare_database", "partition"),
@@ -54,13 +68,13 @@ rule prepare_bakta:
     output:
         database_ready("bakta")
     params:
-        spec=lambda wc: json.dumps(config["databases"]["bakta"], sort_keys=True),
+        spec=lambda wc: database_spec("bakta"),
         script=DATABASE_SCRIPT,
-        database=database_dir("bakta"),
+        database=lambda wc: database_dir("bakta"),
         parent=lambda wc: str(Path(database_dir("bakta")).parent),
-        type=config["databases"]["bakta"]["type"],
-        mode=config["databases"]["bakta"]["mode"],
-        minor=bakta_minor(),
+        type=lambda wc: bakta_setting("type", "light"),
+        mode=lambda wc: bakta_setting("mode", "download"),
+        minor=lambda wc: bakta_minor(),
     threads: setting("prepare_database", "threads")
     resources:
         slurm_partition=setting("prepare_database", "partition"),
