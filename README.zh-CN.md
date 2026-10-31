@@ -277,16 +277,21 @@ databases:
     mode: existing
     path: /shared/db/checkm2/CheckM2_database
     version: "3"
+  bakta:
+    mode: existing
+    path: /shared/db/bakta/v6.0/db-light
+    version: "6.0"
 ```
 
 每个 `path` 都必须指向实际数据库根目录：
 
 - CheckM2 根目录必须直接包含 `uniref100.KO.1.dmnd`。
 - GTDB-Tk 根目录必须直接包含 `metadata/`、`markers/` 和其他必需目录，不能指向其上一级目录。
+- Bakta 根目录必须是安装好的数据库目录，包含 `version.json`、`bakta.db`，且 `amrfinderplus-db/` 已初始化。
 
 已有数据库模式会检查必需路径和文件。R232 以外的 GTDB 版本需要使用兼容的 GTDB-Tk 环境。更换数据库版本时，应使用新的版本目录。
 
-只有实际使用某个数据库的分支才会读取其配置，未使用的数据库条目可以完全省略。Bakta 的 `type` 是可选键：默认 `light`，仅在自动下载时生效；使用已有 Bakta 数据库时只需 `mode: existing`、`path` 和 `version`。
+只有实际使用某个数据库的分支才会读取其配置，未使用的数据库条目可以完全省略。Bakta 的 `type` 和 `url` 仅在自动下载时需要；使用已有 Bakta 数据库时只需 `mode: existing`、`path` 和 `version`。
 
 数据库就绪记录保存在：
 

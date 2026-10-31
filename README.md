@@ -277,16 +277,21 @@ databases:
     mode: existing
     path: /shared/db/checkm2/CheckM2_database
     version: "3"
+  bakta:
+    mode: existing
+    path: /shared/db/bakta/v6.0/db-light
+    version: "6.0"
 ```
 
 Each `path` must point to the actual database root:
 
 - The CheckM2 root must directly contain `uniref100.KO.1.dmnd`.
 - The GTDB-Tk root must directly contain `metadata/`, `markers/`, and the other required directories. Do not point to their parent directory.
+- The Bakta root must be the installed database directory containing `version.json`, `bakta.db`, and a populated `amrfinderplus-db/`.
 
 Existing-database mode validates the required paths and files. GTDB releases other than R232 require a compatible GTDB-Tk environment. Use a new version-specific directory when changing database releases.
 
-Database entries are only read by the branches that use them, so databases that are not used can be omitted entirely. Bakta's `type` is optional: it defaults to `light` and only matters when downloading; an existing Bakta database needs `mode: existing`, `path`, and `version` only.
+Database entries are only read by the branches that use them, so databases that are not used can be omitted entirely. Bakta's `type` and `url` are only needed for downloads; an existing Bakta database needs `mode: existing`, `path`, and `version` only.
 
 Readiness records are stored under:
 

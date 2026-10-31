@@ -115,14 +115,17 @@ rule prepare_bakta:
         ROOT + "/logs/databases/bakta.log"
     shell:
         r"""
-        mkdir -p "$(dirname {log:q})" {params.parent:q} "$(dirname {params.archive:q})"
-        if [[ "{params.mode}" == "download" && ! -s {params.database:q}/version.json ]]; then
-            {{
-                wget -c -O {params.archive:q} {params.url:q}
-                bakta_db install -i {params.archive:q} --output {params.parent:q}
-                # bakta_db install also updates AMRFinderPlus; keep the documented manual step.
-                amrfinder_update --force_update --database {params.database:q}/amrfinderplus-db/
-            }} >> {log:q} 2>&1
+        mkdir -p "$(dirname {log:q})"
+        if [[ "{params.mode}" == "download" ]]; then
+            mkdir -p {params.parent:q} "$(dirname {params.archive:q})"
+            if [[ ! -s {params.database:q}/version.json ]]; then
+                {{
+                    wget -c -O {params.archive:q} {params.url:q}
+                    bakta_db install -i {params.archive:q} --output {params.parent:q}
+                    # bakta_db install also updates AMRFinderPlus; keep the documented manual step.
+                    amrfinder_update --force_update --database {params.database:q}/amrfinderplus-db/
+                }} >> {log:q} 2>&1
+            fi
         fi
         {PYTHON:q} {params.script:q} --name bakta --spec {params.spec:q} \
             --marker {output:q} --validate-only >> {log:q} 2>&1
