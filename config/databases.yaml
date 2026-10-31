@@ -1,6 +1,6 @@
 # Set "mode" to "existing" to use an existing database.
 # path must point to the database root directory containing the actual data files.
-# Bakta's "type" is optional (light by default, or full) and only used for downloads.
+# Bakta downloads use "url" (db-light.tar.xz or db.tar.xz) and "type".
 databases:
   gtdbtk:
     mode: download
@@ -25,3 +25,5 @@ databases:
     path: data/databases/bakta/v6.0/db-light
     version: "6.0"
     type: light
+    # For the full database use type: full, path .../db and url .../db.tar.xz.
+    url: https://zenodo.org/record/14916843/files/db-light.tar.xz

@@ -225,7 +225,7 @@ sampleB	/data/sampleB_R1.fastq.gz	/data/sampleB_R2.fastq.gz
 
 ## 数据库管理
 
-`prepare_database` 规则负责断点续传、安全解压、目录结构检查和原子发布。三个数据库分别只准备一次，并由所有样本共享。
+`prepare_database` 规则负责断点续传、安全解压、目录结构检查和原子发布。三个共享数据库分别只准备一次，并由所有样本共享。Bakta 数据库通过固定 URL 下载，并使用 Bakta 自带的 `bakta_db install` 安装，随后执行 `amrfinder_update`。
 
 | 数据库 | 固定版本 | 使用方 |
 | --- | --- | --- |
@@ -239,6 +239,7 @@ sampleB	/data/sampleB_R1.fastq.gz	/data/sampleB_R2.fastq.gz
 - GTDB-Tk 的兼容性依据[官方数据库安装文档](https://ecogenomics.github.io/GTDBTk/installing/index.html)。
 - CheckM 使用固定的 [CheckM 存档](https://zenodo.org/records/7401545)。
 - CheckM2 使用固定的 [CheckM2 存档](https://zenodo.org/records/14897628)。
+- Bakta 使用固定的 [Bakta 数据库存档](https://zenodo.org/record/14916843)；`databases.bakta.url` 选择 `db-light.tar.xz` 或 `db.tar.xz`。
 
 首次运行时，请在能够联网并写入共享存储的节点上准备数据库：
 
@@ -254,7 +255,7 @@ snakemake prepare_databases \
   --jobs 3
 ```
 
-数据库准备已经包含在完整 DAG 中。显式执行 `prepare_databases` 会准备全部三个数据库；正常分析只准备已启用分支所需的数据库。
+数据库准备已经包含在完整 DAG 中。显式执行 `prepare_databases` 会准备三个共享数据库；当 `analysis.bakta` 启用时还会准备 Bakta 数据库；正常分析只准备已启用分支所需的数据库。
 
 GTDB 数据量较大，请为压缩包、临时解压目录和最终数据库预留足够空间。下载文件会保留在各数据库父目录下的 `.downloads/` 中，以便断点续传和复用。
 
@@ -518,7 +519,7 @@ GTDB-Tk 使用 `classify_wf --skip_ani_screen` 基于固定的 GTDB R232 版本�
 
 Bakta 为可选、与分类无关的注释分支，由 `analysis.bakta` 控制（默认关闭）。每个最终 MAG 单独注释到 `13_bakta/<sample>/<mag>/`，包含 GFF3、GenBank、EMBL、FASTA、TSV、JSON 和作图输出。
 
-`bakta.meta` 启用 Bakta 的 `--meta` CDS 预测模式，适合碎片化的 MAGs（默认 false）。`databases.bakta.type` 选择 `light`（默认）或 `full` 数据库；由于该分支可选，其环境与数据库只在启用分支或请求其就绪标记时准备（例如 `--until results/00_databases/bakta.ready.json`）。Bakta 数据库建议放在快速的本地存储上，网络文件系统会显著拖慢 SQLite 查询。
+`bakta.meta` 启用 Bakta 的 `--meta` CDS 预测模式，适合碎片化的 MAGs（默认 false）。`databases.bakta.type` 选择 `light`（默认）或 `full` 数据库，`databases.bakta.url` 固定对应存档（例如 `https://zenodo.org/record/14916843/files/db-light.tar.xz`）。下载后使用 `bakta_db install` 和 `amrfinder_update` 安装到以 `db-light` 或 `db` 结尾的 `path`。`analysis.bakta` 启用时，该数据库包含在 `prepare_databases` 中；否则用 `--until results/00_databases/bakta.ready.json` 单独准备。Bakta 数据库建议放在快速的本地存储上，网络文件系统会显著拖慢 SQLite 查询。
 
 参见 [Bakta 文档](https://github.com/oschwengers/bakta)。
 

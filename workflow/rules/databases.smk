@@ -1,7 +1,10 @@
 """Database preparation independent of sample analysis and biological tools."""
 import json
 
+BAKTA_ARCHIVES = {"light": "db-light.tar.xz", "full": "db.tar.xz"}
 DATABASE_NAMES = ("gtdbtk", "checkm", "checkm2")
+if BAKTA_ENABLED:
+    DATABASE_NAMES += ("bakta",)
 DATABASE_SCRIPT = str(WORKFLOW_ROOT / "workflow/scripts/prepare_database.py")
 
 
@@ -30,9 +33,36 @@ def bakta_setting(key, default=None):
     return config["databases"].get("bakta", {}).get(key, default)
 
 
-def bakta_minor():
-    version = str(bakta_setting("version", "")).strip()
-    return version.split(".")[-1] if version else "0"
+def bakta_mode():
+    mode = bakta_setting("mode", "download")
+    if mode not in ("download", "existing"):
+        raise ValueError("databases.bakta.mode must be download or existing")
+    return mode
+
+
+def bakta_type():
+    db_type = bakta_setting("type", "light")
+    if db_type not in BAKTA_ARCHIVES:
+        raise ValueError("databases.bakta.type must be light or full")
+    return db_type
+
+
+def bakta_url():
+    """Pinned archive URL; required only when downloading."""
+    if bakta_mode() != "download":
+        return ""
+    archive = BAKTA_ARCHIVES[bakta_type()]
+    url = str(bakta_setting("url", "")).strip()
+    if not url.startswith("https://") or not url.endswith("/" + archive):
+        raise ValueError(f"databases.bakta.url must be an HTTPS URL ending in /{archive}")
+    target = Path(database_dir("bakta"))
+    if target.name != archive[: -len(".tar.xz")]:
+        raise ValueError(f"databases.bakta.path must end in {archive[:-len('.tar.xz')]}")
+    return url
+
+
+def bakta_archive():
+    return str(Path(database_dir("bakta")).parent / ".downloads" / BAKTA_ARCHIVES[bakta_type()])
 
 
 rule prepare_databases:
@@ -72,9 +102,9 @@ rule prepare_bakta:
         script=DATABASE_SCRIPT,
         database=lambda wc: database_dir("bakta"),
         parent=lambda wc: str(Path(database_dir("bakta")).parent),
-        type=lambda wc: bakta_setting("type", "light"),
-        mode=lambda wc: bakta_setting("mode", "download"),
-        minor=lambda wc: bakta_minor(),
+        archive=lambda wc: bakta_archive(),
+        url=lambda wc: bakta_url(),
+        mode=lambda wc: bakta_mode(),
     threads: setting("prepare_database", "threads")
     resources:
         slurm_partition=setting("prepare_database", "partition"),
@@ -85,10 +115,14 @@ rule prepare_bakta:
         ROOT + "/logs/databases/bakta.log"
     shell:
         r"""
-        mkdir -p "$(dirname {log:q})" {params.parent:q}
+        mkdir -p "$(dirname {log:q})" {params.parent:q} "$(dirname {params.archive:q})"
         if [[ "{params.mode}" == "download" && ! -s {params.database:q}/version.json ]]; then
-            bakta_db download --output {params.parent:q} --type {params.type:q} \
-                --minor {params.minor} > {log:q} 2>&1
+            {{
+                wget -c -O {params.archive:q} {params.url:q}
+                bakta_db install -i {params.archive:q} --output {params.parent:q}
+                # bakta_db install also updates AMRFinderPlus; keep the documented manual step.
+                amrfinder_update --force_update --database {params.database:q}/amrfinderplus-db/
+            }} >> {log:q} 2>&1
         fi
         {PYTHON:q} {params.script:q} --name bakta --spec {params.spec:q} \
             --marker {output:q} --validate-only >> {log:q} 2>&1
