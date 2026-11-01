@@ -518,7 +518,7 @@ GTDB-Tk 使用 `classify_wf --skip_ani_screen` 基于固定的 GTDB R232 版本�
 
 Bakta 为可选、与分类无关的注释分支，由 `analysis.bakta` 控制（默认关闭）。每个最终 MAG 单独注释到 `13_bakta/<sample>/<mag>/`，包含 GFF3、GenBank、EMBL、FASTA、TSV、JSON 和作图输出。
 
-`bakta.meta` 启用 Bakta 的 `--meta` CDS 预测模式，适合碎片化的 MAGs（默认 false）。`databases.bakta.type` 选择 `light`（默认）或 `full` 数据库，`databases.bakta.url` 固定对应存档（例如 `https://zenodo.org/record/14916843/files/db-light.tar.xz`）。下载在本地（提交）节点通过 `wget` 完成，并使用 `bakta_db install` 和 `amrfinder_update` 安装到以 `db-light` 或 `db` 结尾的 `path`。`analysis.bakta` 启用时，该数据库包含在 `prepare_databases` 中；使用已有目录（`mode: existing`）时由该运行在本地校验，不提交集群作业；否则用 `--until results/00_databases/bakta.ready.json` 单独准备。Bakta 数据库建议放在快速的本地存储上，网络文件系统会显著拖慢 SQLite 查询。
+`bakta.meta` 启用 Bakta 的 `--meta` CDS 预测模式，适合碎片化的 MAGs（默认 false）。`databases.bakta.type` 选择 `light`（默认）或 `full` 数据库，`databases.bakta.url` 固定对应存档（例如 `https://zenodo.org/record/14916843/files/db-light.tar.xz`）。下载在本地（提交）节点完成，并使用 `bakta_db install` 和 `amrfinder_update` 安装到以 `db-light` 或 `db` 结尾的 `path`。`analysis.bakta` 启用时，该数据库包含在 `prepare_databases` 中；使用已有目录（`mode: existing`）时由该运行在本地校验，不提交集群作业；否则用 `--until results/00_databases/bakta.ready.json` 单独准备。Bakta 数据库建议放在快速的本地存储上，网络文件系统会显著拖慢 SQLite 查询。
 
 参见 [Bakta 文档](https://github.com/oschwengers/bakta)。
 
